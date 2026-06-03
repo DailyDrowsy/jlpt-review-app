@@ -34,6 +34,7 @@
     answered: new Map(),
     searchPage: 1,
     selectedIds: new Set(),
+    autoAdvanceTimer: null,
   };
 
   const $ = (id) => document.getElementById(id);
@@ -291,8 +292,9 @@
     state.session = pool.slice(0, count).map((w) => w.id);
     state.currentIndex = 0;
     state.answered = new Map();
+    clearAutoAdvance();
     els.studyCard.classList.remove("hidden");
-    renderCard();
+    renderCard({ autoSpeak: true });
   }
 
   function getStudyPool() {
@@ -323,7 +325,7 @@
     return Number(els.studyCount.value);
   }
 
-  function renderCard() {
+  function renderCard(options = {}) {
     const word = currentWord();
     if (!word) {
       els.studyCard.classList.add("hidden");
@@ -342,6 +344,9 @@
       : `${levelLabels[word.level] || word.level} · ${word.pos || "词条"}`;
     renderOptions(word);
     renderAnswerDetail(word, state.answered.get(word.id));
+    if (options.autoSpeak) {
+      window.setTimeout(() => speak(word.word || word.kana || ""), 120);
+    }
   }
 
   function renderOptions(word) {
@@ -373,6 +378,7 @@
     updateProgressForAnswer(word, correct);
     renderCard();
     renderStats();
+    scheduleAutoAdvance();
   }
 
   function showAnswer() {
@@ -384,6 +390,7 @@
     }
     renderCard();
     renderStats();
+    scheduleAutoAdvance();
   }
 
   function renderAnswerDetail(word, answered) {
@@ -417,9 +424,10 @@
   }
 
   function nextCard() {
+    clearAutoAdvance();
     if (state.currentIndex < state.session.length - 1) {
       state.currentIndex += 1;
-      renderCard();
+      renderCard({ autoSpeak: true });
     } else {
       els.studyPoolHint.textContent = "本轮完成，可以继续换范围复习";
       renderStats();
@@ -427,18 +435,35 @@
   }
 
   function prevCard() {
+    clearAutoAdvance();
     if (state.currentIndex > 0) {
       state.currentIndex -= 1;
-      renderCard();
+      renderCard({ autoSpeak: true });
     }
   }
 
   function resetSession() {
+    clearAutoAdvance();
     state.session = [];
     state.answered = new Map();
     state.currentIndex = 0;
     els.studyCard.classList.add("hidden");
     updateStudyPoolHint();
+  }
+
+  function scheduleAutoAdvance() {
+    clearAutoAdvance();
+    state.autoAdvanceTimer = window.setTimeout(() => {
+      state.autoAdvanceTimer = null;
+      nextCard();
+    }, 1500);
+  }
+
+  function clearAutoAdvance() {
+    if (state.autoAdvanceTimer) {
+      window.clearTimeout(state.autoAdvanceTimer);
+      state.autoAdvanceTimer = null;
+    }
   }
 
   function currentWord() {
