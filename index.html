@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>日语单词复习系统</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">あ</div>
+          <div>
+            <h1>日语单词复习系统</h1>
+            <p id="librarySummary">载入词库中...</p>
+          </div>
+        </div>
+        <div class="top-actions">
+          <button class="icon-btn" id="exportProgressBtn" title="导出学习进度" aria-label="导出学习进度">⇩</button>
+          <label class="icon-btn file-trigger" title="导入学习进度" aria-label="导入学习进度">
+            ⇧
+            <input id="importProgressInput" type="file" accept="application/json" />
+          </label>
+        </div>
+      </header>
+
+      <nav class="tabs" aria-label="主导航">
+        <button class="tab active" data-view="searchView">查询</button>
+        <button class="tab" data-view="studyView">学习</button>
+        <button class="tab" data-view="manageView">词库</button>
+        <button class="tab" data-view="statsView">进度</button>
+      </nav>
+
+      <main>
+        <section id="searchView" class="view active">
+          <section class="panel search-panel">
+            <div class="section-head">
+              <div>
+                <h2>查词</h2>
+                <p>支持单词、假名、罗马音、词性和含义模糊查询</p>
+              </div>
+              <button class="secondary" id="clearSearchBtn">清空</button>
+            </div>
+            <div class="filter-grid">
+              <label>
+                <span>关键词</span>
+                <input id="searchInput" type="search" placeholder="例：あい / ai / 关系 / 名" autocomplete="off" />
+              </label>
+              <label>
+                <span>等级</span>
+                <select id="levelFilter">
+                  <option value="all">全部等级</option>
+                  <option value="N5">N5</option>
+                  <option value="N4">N4</option>
+                  <option value="N3">N3</option>
+                  <option value="N2">N2</option>
+                  <option value="N1">N1</option>
+                  <option value="CUSTOM">自定义</option>
+                </select>
+              </label>
+              <label>
+                <span>条目</span>
+                <select id="typeFilter">
+                  <option value="all">全部条目</option>
+                  <option value="主词条">主词条</option>
+                  <option value="关联">关联</option>
+                  <option value="同音">同音</option>
+                  <option value="反义/对照">反义/对照</option>
+                </select>
+              </label>
+              <label>
+                <span>状态</span>
+                <select id="statusFilter">
+                  <option value="all">全部状态</option>
+                  <option value="starred">已收藏</option>
+                  <option value="wrong">错题较多</option>
+                  <option value="due">今日需复习</option>
+                  <option value="review">需人工复核</option>
+                </select>
+              </label>
+            </div>
+          </section>
+          <section class="result-toolbar">
+            <div>
+              <strong id="resultCount">0 条</strong>
+              <span id="resultHint">输入关键词或选择等级开始筛选</span>
+            </div>
+            <div class="pager">
+              <label class="inline-label">
+                <span>每页</span>
+                <select id="pageSize">
+                  <option value="30">30</option>
+                  <option value="50" selected>50</option>
+                  <option value="100">100</option>
+                  <option value="200">200</option>
+                  <option value="500">500</option>
+                  <option value="1000">1000</option>
+                  <option value="all">全部</option>
+                  <option value="custom">自定义</option>
+                </select>
+              </label>
+              <label id="customPageSizeWrap" class="inline-label hidden">
+                <span>条数</span>
+                <input id="customPageSize" type="number" min="10" max="5000" value="300" />
+              </label>
+              <button class="secondary small page-prev">上一页</button>
+              <span class="page-info">1 / 1</span>
+              <button class="secondary small page-next">下一页</button>
+              <label class="inline-label jump-label">
+                <span>跳到</span>
+                <input id="jumpPage" type="number" min="1" value="1" />
+              </label>
+              <button class="secondary small" id="jumpPageBtn">跳转</button>
+            </div>
+          </section>
+          <section class="selection-toolbar">
+            <span id="selectedCount">已选择 0 条</span>
+            <button class="secondary small" id="selectPageBtn">选择本页</button>
+            <button class="secondary small" id="clearSelectionBtn">取消选择</button>
+            <button class="secondary small danger" id="deleteSelectedBtn">删除所选</button>
+          </section>
+          <section id="resultsList" class="word-list" aria-live="polite"></section>
+          <section class="bottom-pager">
+            <button class="secondary page-prev">上一页</button>
+            <span class="page-info">1 / 1</span>
+            <button class="secondary page-next">下一页</button>
+            <button class="secondary" id="backToTopBtn">回到顶部</button>
+          </section>
+        </section>
+
+        <section id="studyView" class="view">
+          <section class="panel">
+            <div class="section-head">
+              <div>
+                <h2>学习与复习</h2>
+                <p>选择范围、数量和题型后开始</p>
+              </div>
+              <button class="secondary" id="resetSessionBtn">重置本轮</button>
+            </div>
+            <div class="study-settings">
+              <label>
+                <span>等级</span>
+                <select id="studyLevel">
+                  <option value="all">全部等级</option>
+                  <option value="N5">N5</option>
+                  <option value="N4">N4</option>
+                  <option value="N3">N3</option>
+                  <option value="N2">N2</option>
+                  <option value="N1">N1</option>
+                  <option value="CUSTOM">自定义</option>
+                </select>
+              </label>
+              <label>
+                <span>范围</span>
+                <select id="studyScope">
+                  <option value="new">新词</option>
+                  <option value="due">到期复习</option>
+                  <option value="wrong">错题优先</option>
+                  <option value="starred">收藏词</option>
+                  <option value="all">全部词</option>
+                </select>
+              </label>
+              <label>
+                <span>数量</span>
+                <select id="studyCount">
+                  <option value="10">10</option>
+                  <option value="20">20</option>
+                  <option value="30">30</option>
+                  <option value="40">40</option>
+                  <option value="50">50</option>
+                  <option value="custom">自定义</option>
+                </select>
+              </label>
+              <label id="customCountWrap" class="hidden">
+                <span>自定义数量</span>
+                <input id="customCount" type="number" min="1" max="300" value="25" />
+              </label>
+              <label>
+                <span>顺序</span>
+                <select id="studyOrder">
+                  <option value="level">按等级顺序</option>
+                  <option value="source">按词库顺序</option>
+                  <option value="random">随机</option>
+                </select>
+              </label>
+              <label>
+                <span>题型</span>
+                <select id="studyDirection">
+                  <option value="wordToMeaning">看单词选意思</option>
+                  <option value="meaningToWord">看意思选单词</option>
+                </select>
+              </label>
+            </div>
+            <div class="start-row">
+              <button class="primary" id="startStudyBtn">开始</button>
+              <span id="studyPoolHint">准备就绪</span>
+            </div>
+          </section>
+
+          <section id="studyCard" class="study-card hidden">
+            <div class="card-meta">
+              <span id="sessionProgress">0 / 0</span>
+              <span id="cardLevel">N1</span>
+              <button class="ghost" id="starBtn">收藏</button>
+            </div>
+            <div class="prompt-area">
+              <button class="sound-btn" id="speakBtn" title="朗读" aria-label="朗读">▶</button>
+              <div>
+                <p id="promptLabel">单词</p>
+                <h3 id="promptText">...</h3>
+                <p id="promptSubtext"></p>
+              </div>
+            </div>
+            <div id="options" class="options"></div>
+            <div id="answerDetail" class="answer-detail hidden"></div>
+            <div class="card-actions">
+              <button class="secondary" id="prevCardBtn">上一题</button>
+              <button class="secondary" id="showAnswerBtn">查看答案</button>
+              <button class="primary" id="nextCardBtn">下一题</button>
+            </div>
+          </section>
+        </section>
+
+        <section id="manageView" class="view">
+          <section class="panel">
+            <div class="section-head">
+              <div>
+                <h2>添加单词</h2>
+                <p>可加入 N1-N5 或第六个自定义等级</p>
+              </div>
+            </div>
+            <div class="add-grid">
+              <label><span>等级</span><select id="addLevel"><option>N5</option><option>N4</option><option>N3</option><option>N2</option><option>N1</option><option value="CUSTOM">自定义</option></select></label>
+              <label><span>单词</span><input id="addWord" placeholder="勉強" /></label>
+              <label><span>假名</span><input id="addKana" placeholder="べんきょう" /></label>
+              <label><span>词性</span><input id="addPos" placeholder="名・自動3" /></label>
+              <label><span>音调</span><input id="addAccent" placeholder="⓪" /></label>
+              <label class="wide"><span>含义</span><input id="addMeaning" placeholder="学习，用功" /></label>
+            </div>
+            <div class="start-row">
+              <button class="primary" id="addWordBtn">添加单词</button>
+              <span id="addHint"></span>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="section-head">
+              <div>
+                <h2>批量导入</h2>
+                <p>粘贴 JSON 数组，字段支持 level、word、kana、pos、accent、meaning</p>
+              </div>
+              <button class="secondary" id="exportLibraryBtn">导出词库</button>
+            </div>
+            <textarea id="bulkInput" rows="9" spellcheck="false" placeholder='[{"level":"CUSTOM","word":"試す","kana":"ためす","pos":"他動1","accent":"②","meaning":"尝试"}]'></textarea>
+            <div class="start-row">
+              <button class="primary" id="importBulkBtn">导入 JSON</button>
+              <button class="secondary" id="loadSampleBtn">填入示例</button>
+              <span id="bulkHint"></span>
+            </div>
+          </section>
+
+          <section class="panel danger-zone">
+            <div class="section-head">
+              <div>
+                <h2>数据维护</h2>
+                <p>内置词删除后会被隐藏，自定义词会被移除；可按等级批量删除</p>
+              </div>
+              <button class="secondary danger" id="clearCustomBtn">清空自定义词</button>
+            </div>
+            <div class="delete-grid">
+              <label>
+                <span>批量删除等级</span>
+                <select id="deleteLevel">
+                  <option value="N5">N5</option>
+                  <option value="N4">N4</option>
+                  <option value="N3">N3</option>
+                  <option value="N2">N2</option>
+                  <option value="N1">N1</option>
+                  <option value="CUSTOM">自定义</option>
+                </select>
+              </label>
+              <button class="secondary danger" id="deleteLevelBtn">删除该等级全部词条</button>
+              <button class="secondary" id="restoreDeletedBtn">恢复内置词</button>
+            </div>
+          </section>
+        </section>
+
+        <section id="statsView" class="view">
+          <section class="dashboard">
+            <div class="stat-card"><span>已学习</span><strong id="learnedCount">0</strong></div>
+            <div class="stat-card"><span>今日待复习</span><strong id="dueCount">0</strong></div>
+            <div class="stat-card"><span>正确率</span><strong id="accuracyRate">0%</strong></div>
+            <div class="stat-card"><span>连续学习</span><strong id="streakDays">0 天</strong></div>
+          </section>
+          <section class="panel">
+            <div class="section-head">
+              <div>
+                <h2>等级进度</h2>
+                <p>学习次数、正确率和复习到期情况</p>
+              </div>
+              <button class="secondary danger" id="resetProgressBtn">清空进度</button>
+            </div>
+            <div id="levelStats" class="level-stats"></div>
+          </section>
+          <section class="panel">
+            <div class="section-head">
+              <div>
+                <h2>最近记录</h2>
+                <p>保留最近 100 条答题历史</p>
+              </div>
+            </div>
+            <div id="historyList" class="history-list"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <template id="wordItemTemplate">
+      <article class="word-item">
+        <label class="select-word-wrap">
+          <input class="select-word" type="checkbox" />
+        </label>
+        <div class="word-main">
+          <div class="word-title-row">
+            <strong class="word-title"></strong>
+            <span class="pill level-pill"></span>
+            <span class="pill type-pill"></span>
+          </div>
+          <p class="word-kana"></p>
+          <p class="word-meaning"></p>
+        </div>
+        <div class="word-actions">
+          <button class="ghost small speak-word">朗读</button>
+          <button class="ghost small star-word">收藏</button>
+          <button class="ghost small delete-word">删除</button>
+        </div>
+      </article>
+    </template>
+
+    <script src="./assets/vocab-data.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
