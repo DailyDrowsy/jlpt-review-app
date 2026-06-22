@@ -1,0 +1,25 @@
+{
+  "name": "Kotoba Flow · JLPT 日语复习",
+  "short_name": "Kotoba Flow",
+  "description": "更专注、更顺手的 JLPT 日语词汇复习工具。",
+  "lang": "zh-CN",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f1e8",
+  "theme_color": "#315f53",
+  "icons": [
+    {
+      "src": "./assets/kotoba-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./assets/kotoba-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

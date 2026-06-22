@@ -1,0 +1,58 @@
+{
+  "desktop": {
+    "initial_word_count": "3,201 个词",
+    "library_card_count": 3201,
+    "visible_level_sections": [
+      "N1"
+    ],
+    "pagination_present": false,
+    "scrubber_visible": true,
+    "first_word": "〜扱い",
+    "demo_array_present": false,
+    "scrubber_drag": {
+      "before": 0,
+      "after": 7127,
+      "level": "N1",
+      "kana": "して",
+      "moved": true
+    },
+    "voice_options": [
+      {
+        "text": "七海（女声）",
+        "value": "nanami-natural"
+      },
+      {
+        "text": "圭太（男声）",
+        "value": "keita-natural"
+      }
+    ],
+    "speech_test": {
+      "text": "日本語を勉強します",
+      "voice": "nanami-natural",
+      "lang": "ja-JP"
+    },
+    "study_navigation": {
+      "buttons": [
+        "← 上一题",
+        "下一题 →Enter"
+      ],
+      "no_rating_controls": true,
+      "previous_disabled_on_first": true,
+      "second_counter": "2 / 10",
+      "back_counter": "1 / 10",
+      "prompt_restored": true,
+      "second_prompt_different": true,
+      "answer_state_restored": true
+    },
+    "page_errors": [],
+    "console_errors": []
+  },
+  "mobile": {
+    "mobile_nav_visible": true,
+    "sidebar_hidden": true,
+    "scrubber_visible": true,
+    "waterfall_grid_columns": "333px",
+    "one_column": true,
+    "page_errors": []
+  }
+}

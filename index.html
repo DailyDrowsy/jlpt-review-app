@@ -1,413 +1,453 @@
 <!doctype html>
-<html lang="zh-CN">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>日语单词复习系统</title>
-    <link rel="stylesheet" href="./styles.css" />
-  </head>
-  <body>
-    <div class="app-shell">
-      <header class="topbar">
-        <div class="brand">
-          <div class="brand-mark" aria-hidden="true">あ</div>
-          <div>
-            <h1>日语单词复习系统</h1>
-            <p id="librarySummary">载入词库中...</p>
-          </div>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#315f53" />
+  <meta name="description" content="更专注、更顺手的 JLPT 日语词汇复习工具。" />
+  <title>Kotoba Flow · JLPT 日语复习</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <svg class="svg-sprite" aria-hidden="true">
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.8 12 3l9 7.8v9.7a.5.5 0 0 1-.5.5h-5.7v-6.4H9.2V21H3.5a.5.5 0 0 1-.5-.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 4.8c3.5-.8 6.2-.3 8 1.2v14c-1.8-1.5-4.5-2-8-1.2zm16 0c-3.5-.8-6.2-.3-8 1.2v14c1.8-1.5 4.5-2 8-1.2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 2 1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V3m0 0L7.5 7.5M12 3l4.5 4.5M4 14v6h16v-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V10h4v10zm6 0V4h4v16zm6 0v-7h4v7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Zm8.1 3.8-.2-1.7 2-1.5-2-3.4-2.4 1a8 8 0 0 0-1.5-.9L15.7 3h-4l-.4 2.5a8 8 0 0 0-1.5.9l-2.4-1-2 3.4 2 1.5L7.3 12l.2 1.7-2 1.5 2 3.4 2.4-1a8 8 0 0 0 1.5.9l.4 2.5h4l.4-2.5a8 8 0 0 0 1.5-.9l2.4 1 2-3.4-2-1.5.2-1.7Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m15.5 15.5 5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 15.2A8 8 0 0 1 8.8 4a8.4 8.4 0 1 0 11.2 11.2Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M4 20h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-volume" viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4zm12.5-.5a5 5 0 0 1 0 7m2-9a8 8 0 0 1 0 11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.8 1-6.1-4.4-4.3 6.1-.9z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M5 7h14M9 7V4h6v3m-8 0 1 13h8l1-13M10 11v5m4-5v5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4 10-10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="19" cy="12" r="1.4" fill="currentColor"/></symbol>
+    <symbol id="i-flame" viewBox="0 0 24 24"><path d="M13 3c1 4-2 4.7-1 8 1-1 2-2 3-3 2 2 3 4 3 6.5a6 6 0 1 1-12 0c0-3 1.8-5.8 5-8.5-.3 2.8.4 4 1.2 4.8C13.5 8.5 14 6 13 3Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+  </svg>
+
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="主导航">
+      <div class="brand-block">
+        <div class="brand-mark">言</div>
+        <div>
+          <strong>Kotoba Flow</strong>
+          <span>JLPT 日语复习</span>
         </div>
-        <div class="top-actions">
-          <button class="icon-btn" id="exportProgressBtn" title="导出学习进度" aria-label="导出学习进度">⇩</button>
-          <label class="icon-btn file-trigger" title="导入学习进度" aria-label="导入学习进度">
-            ⇧
-            <input id="importProgressInput" type="file" accept="application/json" />
-          </label>
+      </div>
+
+      <nav class="side-nav">
+        <button class="nav-item active" data-view="dashboardView" data-title="今日学习" data-subtitle="把最重要的复习放在最前面">
+          <svg><use href="#i-home"></use></svg><span>今日</span>
+        </button>
+        <button class="nav-item" data-view="libraryView" data-title="词汇库" data-subtitle="搜索、筛选与整理你的词汇">
+          <svg><use href="#i-book"></use></svg><span>词汇</span>
+        </button>
+        <button class="nav-item" data-view="studyView" data-title="开始学习" data-subtitle="按你的节奏安排一轮复习">
+          <svg><use href="#i-spark"></use></svg><span>学习</span>
+        </button>
+        <button class="nav-item" data-view="manageView" data-title="词库管理" data-subtitle="添加、导入与备份词汇">
+          <svg><use href="#i-upload"></use></svg><span>词库</span>
+        </button>
+        <button class="nav-item" data-view="insightsView" data-title="学习洞察" data-subtitle="从数据中找到下一步重点">
+          <svg><use href="#i-chart"></use></svg><span>进度</span>
+        </button>
+        <button class="nav-item" data-view="settingsView" data-title="偏好设置" data-subtitle="调整外观、朗读和学习习惯">
+          <svg><use href="#i-settings"></use></svg><span>设置</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-goal">
+        <div class="sidebar-goal-head"><span>今日目标</span><strong id="sidebarGoalText">0 / 20</strong></div>
+        <div class="mini-progress"><span id="sidebarGoalBar"></span></div>
+        <button class="text-button" data-view-jump="settingsView">调整目标</button>
+      </div>
+    </aside>
+
+    <header class="mobile-header">
+      <div class="brand-mark small">言</div>
+      <div><strong>Kotoba Flow</strong><span id="mobilePageTitle">今日学习</span></div>
+      <button class="icon-button" id="mobileThemeBtn" aria-label="切换主题"><svg><use href="#i-moon"></use></svg></button>
+    </header>
+
+    <main class="main-area">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow" id="todayText">今天</p>
+          <h1 id="pageTitle">今日学习</h1>
+          <p id="pageSubtitle">把最重要的复习放在最前面</p>
+        </div>
+        <div class="header-actions">
+          <button class="icon-button" id="themeBtn" aria-label="切换主题" title="切换主题"><svg><use href="#i-moon"></use></svg></button>
+          <button class="button secondary" id="quickBackupBtn"><svg><use href="#i-download"></use></svg>备份</button>
         </div>
       </header>
 
-      <nav class="tabs" aria-label="主导航">
-        <button class="tab active" data-view="searchView">词汇</button>
-        <button class="tab" data-view="studyView">学习</button>
-        <button class="tab" data-view="manageView">词库</button>
-        <button class="tab" data-view="statsView">进度</button>
-        <button class="tab" data-view="settingsView">设置</button>
-      </nav>
+      <section id="dashboardView" class="view active" aria-labelledby="pageTitle">
+        <div class="hero-grid">
+          <article class="hero-card">
+            <div class="hero-copy">
+              <span class="soft-pill"><svg><use href="#i-flame"></use></svg><span id="streakHero">连续 0 天</span></span>
+              <h2 id="greetingTitle">今天也进步一点点。</h2>
+              <p id="heroMessage">先完成到期复习，再学习少量新词，记忆会更稳。</p>
+              <div class="hero-actions">
+                <button class="button primary large" id="startDueBtn">开始今日复习</button>
+                <button class="button ghost large" id="startQuickBtn">快速 10 题</button>
+              </div>
+            </div>
+            <div class="goal-ring" id="goalRing" style="--value:0">
+              <div><strong id="goalRingValue">0</strong><span id="goalRingLabel">/ 20 题</span></div>
+            </div>
+          </article>
 
-      <main>
-        <section id="searchView" class="view active">
-          <section class="panel search-panel">
-            <div class="section-head">
-              <div>
-                <h2>词汇表</h2>
-                <p>按 N1-N5 和自定义目录浏览，查词仍支持单词、假名、罗马音、词性和含义</p>
-              </div>
+          <article class="focus-card card">
+            <div class="card-head compact">
+              <div><span class="section-kicker">今日重点</span><h3>复习队列</h3></div>
+              <button class="text-button" data-view-jump="studyView">自定义</button>
             </div>
-            <div class="search-row">
-              <label class="search-field">
-                <span>关键词</span>
-                <input id="searchInput" type="search" placeholder="例：あい / ai / 关系 / 名" autocomplete="off" />
-              </label>
-              <button class="secondary" id="filterToggleBtn" aria-expanded="false">筛选</button>
-              <button class="secondary" id="clearSearchBtn">清空</button>
-            </div>
-            <div id="searchFilters" class="filter-grid compact-filters hidden">
-              <label>
-                <span>等级</span>
-                <select id="levelFilter">
-                  <option value="all">全部等级</option>
-                  <option value="N5">N5</option>
-                  <option value="N4">N4</option>
-                  <option value="N3">N3</option>
-                  <option value="N2">N2</option>
-                  <option value="N1">N1</option>
-                  <option value="CUSTOM">自定义</option>
-                </select>
-              </label>
-              <label>
-                <span>条目</span>
-                <select id="typeFilter">
-                  <option value="all">全部条目</option>
-                  <option value="主词条">主词条</option>
-                  <option value="关联">关联</option>
-                  <option value="同音">同音</option>
-                  <option value="反义/对照">反义/对照</option>
-                </select>
-              </label>
-              <label>
-                <span>状态</span>
-                <select id="statusFilter">
-                  <option value="all">全部状态</option>
-                  <option value="starred">已收藏</option>
-                  <option value="wrong">错题较多</option>
-                  <option value="due">今日需复习</option>
-                  <option value="review">需人工复核</option>
-                </select>
-              </label>
-              <label>
-                <span>词库</span>
-                <select id="sourceFilter">
-                  <option value="all">全部词库</option>
-                </select>
-              </label>
-            </div>
-            <div id="directoryTabs" class="directory-tabs" aria-label="词库目录"></div>
-          </section>
-          <section class="result-toolbar">
-            <div>
-              <strong id="resultCount">0 条</strong>
-              <span id="resultHint">选择目录或输入关键词开始浏览</span>
-            </div>
-            <div class="view-tools">
-              <span id="kanaPositionHint" class="kana-position-hint">五十音导航</span>
-              <button class="secondary small" id="backToTopBtn">回到顶部</button>
-            </div>
-          </section>
-          <section class="selection-toolbar">
-            <span id="selectedCount">已选择 0 条</span>
-            <button class="secondary small" id="selectPageBtn">选择当前结果</button>
-            <button class="secondary small" id="clearSelectionBtn">取消选择</button>
-            <button class="secondary small danger" id="deleteSelectedBtn">删除所选</button>
-          </section>
-          <section class="word-browser">
-            <section id="resultsList" class="word-list" aria-live="polite"></section>
-            <aside id="kanaNavigator" class="kana-navigator" aria-label="五十音快速导航">
-              <div id="kanaRail" class="kana-rail" role="slider" tabindex="0" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="拖动快速定位词表">
-                <div class="kana-track">
-                  <div id="kanaProgress" class="kana-progress"></div>
-                </div>
-                <div id="kanaThumb" class="kana-thumb"><span id="kanaCurrent">あ</span></div>
-              </div>
-              <div id="kanaLabels" class="kana-labels"></div>
-            </aside>
-          </section>
-          <section class="bottom-pager">
-            <button class="secondary" id="scrollToTopBottomBtn">回到顶部</button>
-          </section>
-        </section>
+            <div class="focus-row"><span class="focus-icon due">復</span><div><strong id="focusDue">0</strong><span>到期复习</span></div></div>
+            <div class="focus-row"><span class="focus-icon new">新</span><div><strong id="focusNew">0</strong><span>建议新词</span></div></div>
+            <div class="focus-row"><span class="focus-icon hard">難</span><div><strong id="focusHard">0</strong><span>薄弱词汇</span></div></div>
+          </article>
+        </div>
 
-        <section id="studyView" class="view">
-          <section class="panel study-start-panel">
-            <div class="section-head">
-              <div>
-                <h2>学习与复习</h2>
-                <p id="studySettingsSummary">当前学习设置载入中...</p>
-              </div>
-              <div class="panel-actions">
-                <button class="secondary" id="openSettingsBtn">设置</button>
-                <button class="secondary" id="resetSessionBtn">重置本轮</button>
-              </div>
-            </div>
-            <div class="start-row">
-              <button class="primary" id="startStudyBtn">开始</button>
-              <span id="studyPoolHint">准备就绪</span>
-            </div>
-          </section>
+        <div class="stats-grid">
+          <article class="metric-card"><span>已学习</span><strong id="metricLearned">0</strong><small id="metricLearnedSub">共 0 词</small></article>
+          <article class="metric-card"><span>今日待复习</span><strong id="metricDue">0</strong><small>优先完成到期项目</small></article>
+          <article class="metric-card"><span>总体正确率</span><strong id="metricAccuracy">0%</strong><small id="metricAccuracySub">尚无答题记录</small></article>
+          <article class="metric-card"><span>已掌握</span><strong id="metricMastered">0</strong><small>间隔达到 21 天以上</small></article>
+        </div>
 
-          <section id="studyCard" class="study-card hidden">
-            <div class="card-meta">
-              <span id="sessionProgress">0 / 0</span>
-              <span id="cardLevel">N1</span>
-              <button class="ghost" id="starBtn">收藏</button>
+        <div class="content-grid two-one">
+          <article class="card">
+            <div class="card-head">
+              <div><span class="section-kicker">现在该复习</span><h3>到期词汇</h3></div>
+              <button class="text-button" id="viewAllDueBtn">查看全部</button>
             </div>
-            <div class="prompt-area">
-              <button class="sound-btn" id="speakBtn" title="朗读" aria-label="朗读">▶</button>
-              <div>
-                <p id="promptLabel">单词</p>
-                <h3 id="promptText">...</h3>
-                <p id="promptSubtext"></p>
-              </div>
-            </div>
-            <div id="options" class="options"></div>
-            <div id="answerDetail" class="answer-detail hidden"></div>
-            <div class="card-actions">
-              <button class="secondary" id="prevCardBtn">上一题</button>
-              <button class="secondary" id="showAnswerBtn">查看答案</button>
-              <button class="primary" id="nextCardBtn">下一题</button>
-            </div>
-          </section>
-        </section>
+            <div id="duePreview" class="compact-word-list"></div>
+          </article>
 
-        <section id="manageView" class="view">
-          <section class="panel">
-            <div class="section-head">
-              <div>
-                <h2>添加单词</h2>
-                <p>可加入 N1-N5 或第六个自定义等级</p>
-              </div>
+          <article class="card activity-card">
+            <div class="card-head compact">
+              <div><span class="section-kicker">最近 7 天</span><h3>学习节奏</h3></div>
+              <strong id="weekAnswerTotal">0 题</strong>
             </div>
-            <div class="add-grid">
-              <label><span>等级</span><select id="addLevel"><option>N5</option><option>N4</option><option>N3</option><option>N2</option><option>N1</option><option value="CUSTOM">自定义</option></select></label>
-              <label><span>单词</span><input id="addWord" placeholder="勉強" /></label>
-              <label><span>假名</span><input id="addKana" placeholder="べんきょう" /></label>
-              <label><span>词性</span><input id="addPos" placeholder="名・自動3" /></label>
-              <label><span>音调</span><input id="addAccent" placeholder="⓪" /></label>
-              <label class="wide"><span>含义</span><input id="addMeaning" placeholder="学习，用功" /></label>
-            </div>
-            <div class="start-row">
-              <button class="primary" id="addWordBtn">添加单词</button>
-              <span id="addHint"></span>
-            </div>
-          </section>
+            <div id="weekBars" class="week-bars" aria-label="最近七天答题量"></div>
+            <p class="muted" id="weekSummary">完成第一轮学习后，这里会显示你的节奏。</p>
+          </article>
+        </div>
 
-          <section class="panel">
-            <div class="section-head">
-              <div>
-                <h2>批量导入</h2>
-                <p>支持 Excel / CSV / JSON 文件，也保留 JSON 文本导入</p>
-              </div>
-              <button class="secondary" id="exportLibraryBtn">导出词库</button>
-            </div>
-            <div class="import-grid">
-              <label>
-                <span>导入等级</span>
-                <select id="bulkLevel"><option>N1</option><option>N2</option><option>N3</option><option>N4</option><option>N5</option><option value="CUSTOM">自定义</option></select>
-              </label>
-              <label>
-                <span>词库名</span>
-                <input id="bulkSource" value="自定义词库" placeholder="例：红书N1 / 我的错题本" />
-              </label>
-              <label class="file-import">
-                <span>文件</span>
-                <input id="bulkFileInput" type="file" multiple accept=".xlsx,.xls,.csv,.tsv,.json,application/json,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" />
-              </label>
-            </div>
-            <p class="import-note">Excel 表头可用：写法/单词、假名、音调、词性、含义；没有等级列时会按上方“导入等级”保存。</p>
-            <textarea id="bulkInput" rows="9" spellcheck="false" placeholder='[{"level":"CUSTOM","word":"試す","kana":"ためす","pos":"他動1","accent":"②","meaning":"尝试"}]'></textarea>
-            <div class="start-row">
-              <button class="primary" id="importFileBtn">导入文件</button>
-              <button class="secondary" id="importBulkBtn">导入文本 JSON</button>
-              <button class="secondary" id="loadSampleBtn">填入示例</button>
-              <span id="bulkHint"></span>
-            </div>
-          </section>
+        <article class="card">
+          <div class="card-head">
+            <div><span class="section-kicker">JLPT 进度</span><h3>等级掌握概览</h3></div>
+            <button class="text-button" data-view-jump="insightsView">详细数据</button>
+          </div>
+          <div id="dashboardLevelProgress" class="level-progress-list"></div>
+        </article>
+      </section>
 
-          <section class="panel danger-zone">
-            <div class="section-head">
-              <div>
-                <h2>数据维护</h2>
-                <p>内置词删除后会被隐藏，自定义词会被移除；可按等级批量删除</p>
-              </div>
-              <button class="secondary danger" id="clearCustomBtn">清空自定义词</button>
-            </div>
-            <div class="delete-grid">
-              <label>
-                <span>批量删除等级</span>
-                <select id="deleteLevel">
-                  <option value="N5">N5</option>
-                  <option value="N4">N4</option>
-                  <option value="N3">N3</option>
-                  <option value="N2">N2</option>
-                  <option value="N1">N1</option>
-                  <option value="CUSTOM">自定义</option>
-                </select>
-              </label>
-              <button class="secondary danger" id="deleteLevelBtn">删除该等级全部词条</button>
-              <label>
-                <span>按词库删除</span>
-                <select id="deleteSource"></select>
-              </label>
-              <button class="secondary danger" id="deleteSourceBtn">删除该词库词条</button>
-              <button class="secondary" id="restoreDeletedBtn">恢复内置词</button>
-            </div>
-          </section>
-        </section>
+      <section id="libraryView" class="view">
+        <article class="card library-toolbar-card">
+          <div class="search-box">
+            <svg><use href="#i-search"></use></svg>
+            <input id="librarySearch" type="search" placeholder="搜索单词、假名、罗马音或含义…" autocomplete="off" />
+            <kbd>/</kbd>
+          </div>
+          <div class="filter-row library-filter-row">
+            <label class="field compact"><span>等级</span><select id="libraryLevel"><option value="all">N1–N5 全部</option><option>N1</option><option>N2</option><option>N3</option><option>N4</option><option>N5</option><option value="CUSTOM">自定义</option></select></label>
+            <label class="field compact"><span>状态</span><select id="libraryStatus"><option value="all">全部状态</option><option value="due">到期复习</option><option value="new">未学习</option><option value="starred">已收藏</option><option value="difficult">薄弱词</option><option value="mastered">已掌握</option></select></label>
+            <label class="field compact"><span>词库</span><select id="librarySource"><option value="all">全部词库</option></select></label>
+            <button class="button secondary compact-button" id="resetLibraryFilters">重置</button>
+          </div>
+          <div id="kanaChips" class="chip-row" aria-label="五十音筛选"></div>
+        </article>
 
-        <section id="statsView" class="view">
-          <section class="dashboard">
-            <div class="stat-card"><span>已学习</span><strong id="learnedCount">0</strong></div>
-            <div class="stat-card"><span>今日待复习</span><strong id="dueCount">0</strong></div>
-            <div class="stat-card"><span>正确率</span><strong id="accuracyRate">0%</strong></div>
-            <div class="stat-card"><span>连续学习</span><strong id="streakDays">0 天</strong></div>
-          </section>
-          <section class="panel">
-            <div class="section-head">
-              <div>
-                <h2>等级进度</h2>
-                <p>学习次数、正确率和复习到期情况</p>
-              </div>
-              <button class="secondary danger" id="resetProgressBtn">清空进度</button>
+        <div class="section-bar">
+          <div><strong id="libraryResultCount">0 个词</strong><span id="libraryResultHint">正在载入词库…</span></div>
+          <div class="section-bar-actions">
+            <span class="stream-order-note">按 JLPT 等级与假名连续排列</span>
+            <button class="button ghost" data-view-jump="manageView">导入 / 管理</button>
+            <button class="button secondary" id="studyFilteredBtn">学习当前结果</button>
+          </div>
+        </div>
+
+        <div id="selectionBar" class="selection-bar hidden">
+          <strong id="selectionCount">已选择 0 个词</strong>
+          <div>
+            <button class="button ghost small" id="selectPageBtn">选择当前结果</button>
+            <button class="button ghost small" id="starSelectedBtn">收藏</button>
+            <button class="button ghost small" id="studySelectedBtn">学习所选</button>
+            <button class="button danger-ghost small" id="deleteSelectedBtn">删除/隐藏</button>
+            <button class="icon-button small" id="clearSelectionBtn" aria-label="取消选择"><svg><use href="#i-close"></use></svg></button>
+          </div>
+        </div>
+
+        <div class="library-stream-shell">
+          <div id="wordGrid" class="word-stream" aria-live="polite"></div>
+          <aside id="kanaScrubber" class="kana-scrubber hidden" aria-label="按假名拖动定位">
+            <div id="kanaScrubberTrack" class="kana-scrubber-track" role="slider" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="0">
+              <div id="kanaScrubberBubble" class="kana-scrubber-bubble" aria-hidden="true"><span id="kanaScrubberLevel">N1</span><strong id="kanaScrubberLabel">あ</strong></div>
+              <span id="kanaScrubberProgress" class="kana-scrubber-progress"></span>
+              <span id="kanaScrubberThumb" class="kana-scrubber-thumb" aria-hidden="true"><span></span></span>
             </div>
-            <div id="levelStats" class="level-stats"></div>
-          </section>
-          <section class="panel">
-            <div class="section-head">
-              <div>
-                <h2>最近记录</h2>
-                <p>保留最近 100 条答题历史</p>
-              </div>
+            <small>假名</small>
+          </aside>
+        </div>
+      </section>
+
+      <section id="studyView" class="view">
+        <div class="study-layout">
+          <article class="card study-config-card">
+            <div class="card-head">
+              <div><span class="section-kicker">学习计划</span><h3>安排这一轮</h3></div>
+              <span class="availability" id="studyAvailability">可用 0 词</span>
             </div>
+            <div class="preset-row">
+              <button class="preset-card active" data-preset="today"><span>今日复习</span><strong>到期优先</strong><small>最推荐</small></button>
+              <button class="preset-card" data-preset="new"><span>学习新词</span><strong>循序渐进</strong><small>建立新记忆</small></button>
+              <button class="preset-card" data-preset="hard"><span>攻克薄弱</span><strong>错题优先</strong><small>针对性强化</small></button>
+            </div>
+            <div class="form-grid two-col">
+              <label class="field"><span>JLPT 等级</span><select id="studyLevel"><option value="all">全部等级</option><option>N5</option><option>N4</option><option>N3</option><option>N2</option><option>N1</option><option value="CUSTOM">自定义</option></select></label>
+              <label class="field"><span>学习范围</span><select id="studyScope"><option value="today">今日计划</option><option value="due">仅到期复习</option><option value="new">未学习词</option><option value="difficult">薄弱词</option><option value="starred">收藏词</option><option value="all">全部词</option></select></label>
+              <label class="field"><span>题目数量</span><select id="studyCount"><option>10</option><option selected>20</option><option>30</option><option>50</option></select></label>
+              <label class="field"><span>题型</span><select id="studyMode"><option value="wordToMeaning">看单词选含义</option><option value="meaningToWord">看含义选单词</option><option value="kanaToWord">看假名选单词</option><option value="typing">看含义输入写法</option></select></label>
+              <label class="field"><span>顺序</span><select id="studyOrder"><option value="smart">智能排序</option><option value="random">随机</option><option value="level">按等级</option></select></label>
+              <label class="field"><span>朗读</span><select id="studyAutoSpeak"><option value="inherit">跟随设置</option><option value="on">自动朗读</option><option value="off">不自动朗读</option></select></label>
+            </div>
+            <button class="button primary full large" id="startStudyBtn"><svg><use href="#i-spark"></use></svg>开始学习</button>
+          </article>
+
+          <aside class="card study-preview-card">
+            <span class="section-kicker">本轮预览</span>
+            <h3 id="studyPreviewTitle">今日复习</h3>
+            <p id="studyPreviewText">优先处理已到期和薄弱词汇。</p>
+            <div class="preview-stack">
+              <div><span>预计用时</span><strong id="studyEstimate">约 5 分钟</strong></div>
+              <div><span>可用词汇</span><strong id="studyPoolCount">0</strong></div>
+              <div><span>学习方式</span><strong id="studyModeLabel">选择题</strong></div>
+            </div>
+            <div class="keyboard-card"><strong>键盘快捷键</strong><p><kbd>1–4</kbd> 选择答案　<kbd>Space</kbd> 显示答案　<kbd>S</kbd> 朗读　<kbd>F</kbd> 收藏</p></div>
+          </aside>
+        </div>
+      </section>
+
+      <section id="manageView" class="view">
+        <div class="content-grid two-one manage-grid">
+          <article class="card">
+            <div class="card-head"><div><span class="section-kicker">快速添加</span><h3>添加一个单词</h3></div></div>
+            <form id="addWordForm" class="form-grid two-col">
+              <label class="field"><span>等级</span><select id="addLevel"><option>N5</option><option>N4</option><option>N3</option><option>N2</option><option>N1</option><option value="CUSTOM">自定义</option></select></label>
+              <label class="field"><span>词库名</span><input id="addSource" value="我的词库" /></label>
+              <label class="field"><span>写法 *</span><input id="addWord" placeholder="勉強" required /></label>
+              <label class="field"><span>假名</span><input id="addKana" placeholder="べんきょう" /></label>
+              <label class="field"><span>词性</span><input id="addPos" placeholder="名・自動3" /></label>
+              <label class="field"><span>音调</span><input id="addAccent" placeholder="⓪" /></label>
+              <label class="field full-span"><span>含义 *</span><input id="addMeaning" placeholder="学习，用功" required /></label>
+              <label class="field full-span"><span>备注</span><textarea id="addNote" rows="3" placeholder="例句、易混淆点或记忆提示"></textarea></label>
+              <button class="button primary full-span" type="submit"><svg><use href="#i-plus"></use></svg>添加到词库</button>
+            </form>
+          </article>
+
+          <article class="card import-card">
+            <div class="card-head compact"><div><span class="section-kicker">批量导入</span><h3>拖入词库文件</h3></div></div>
+            <label id="dropZone" class="drop-zone">
+              <input id="importWordsInput" type="file" multiple accept=".json,.csv,.tsv,.xlsx,.xls,application/json,text/csv" />
+              <svg><use href="#i-upload"></use></svg>
+              <strong>点击选择或拖放文件</strong>
+              <span>支持 JSON、CSV、TSV、Excel</span>
+            </label>
+            <label class="field"><span>默认导入等级</span><select id="importDefaultLevel"><option value="CUSTOM">自定义</option><option>N5</option><option>N4</option><option>N3</option><option>N2</option><option>N1</option></select></label>
+            <label class="field"><span>默认词库名</span><input id="importDefaultSource" value="导入词库" /></label>
+            <p class="muted small-text">可识别“单词/写法、假名、含义、词性、音调、等级、词库”等常见表头。</p>
+          </article>
+        </div>
+
+        <div class="content-grid two-col-cards">
+          <article class="card action-card">
+            <div class="action-icon"><svg><use href="#i-download"></use></svg></div>
+            <div><h3>导出完整备份</h3><p>包含学习进度、自定义词汇、设置与历史记录。</p></div>
+            <button class="button secondary" id="exportBackupBtn">导出 JSON</button>
+          </article>
+          <article class="card action-card">
+            <div class="action-icon"><svg><use href="#i-upload"></use></svg></div>
+            <div><h3>恢复备份</h3><p>兼容旧版进度结构，也可只导入进度。</p></div>
+            <button class="button secondary" id="importBackupBtn">选择文件</button>
+          </article>
+          <article class="card action-card">
+            <div class="action-icon"><svg><use href="#i-book"></use></svg></div>
+            <div><h3>导出当前词库</h3><p>导出可见词汇，便于整理或迁移。</p></div>
+            <button class="button secondary" id="exportLibraryBtn">导出词库</button>
+          </article>
+          <article class="card action-card danger-card">
+            <div class="action-icon"><svg><use href="#i-trash"></use></svg></div>
+            <div><h3>恢复被隐藏的内置词</h3><p>不会影响你添加的自定义词。</p></div>
+            <button class="button danger-ghost" id="restoreBuiltInBtn">全部恢复</button>
+          </article>
+        </div>
+
+        <article class="card">
+          <div class="card-head"><div><span class="section-kicker">词库概览</span><h3>来源与数量</h3></div><strong id="manageTotalWords">0 个词</strong></div>
+          <div id="sourceOverview" class="source-overview"></div>
+        </article>
+      </section>
+
+      <section id="insightsView" class="view">
+        <div class="stats-grid insights-metrics">
+          <article class="metric-card"><span>累计答题</span><strong id="insightAnswers">0</strong><small>所有学习轮次</small></article>
+          <article class="metric-card"><span>连续学习</span><strong id="insightStreak">0 天</strong><small>保持稳定胜过突击</small></article>
+          <article class="metric-card"><span>近 7 天正确率</span><strong id="insightWeekAccuracy">0%</strong><small id="insightWeekAccuracySub">暂无数据</small></article>
+          <article class="metric-card"><span>薄弱词</span><strong id="insightDifficult">0</strong><small>建议优先复习</small></article>
+        </div>
+
+        <div class="content-grid two-one">
+          <article class="card">
+            <div class="card-head"><div><span class="section-kicker">等级掌握</span><h3>学习覆盖与掌握度</h3></div></div>
+            <div id="insightLevelProgress" class="level-progress-list detailed"></div>
+          </article>
+          <article class="card">
+            <div class="card-head compact"><div><span class="section-kicker">最近 28 天</span><h3>学习热力</h3></div></div>
+            <div id="heatmap" class="heatmap"></div>
+            <div class="heatmap-legend"><span>少</span><i data-level="0"></i><i data-level="1"></i><i data-level="2"></i><i data-level="3"></i><i data-level="4"></i><span>多</span></div>
+          </article>
+        </div>
+
+        <div class="content-grid two-one">
+          <article class="card">
+            <div class="card-head"><div><span class="section-kicker">最近记录</span><h3>答题历史</h3></div><button class="text-button" id="clearHistoryBtn">清空记录</button></div>
             <div id="historyList" class="history-list"></div>
-          </section>
-        </section>
-
-        <section id="settingsView" class="view">
-          <section class="panel">
-            <div class="section-head">
-              <div>
-                <h2>学习设置</h2>
-                <p>集中调整学习范围、题型和朗读偏好</p>
-              </div>
-            </div>
-            <div class="study-settings">
-              <label>
-                <span>等级</span>
-                <select id="studyLevel">
-                  <option value="all">全部等级</option>
-                  <option value="N5">N5</option>
-                  <option value="N4">N4</option>
-                  <option value="N3">N3</option>
-                  <option value="N2">N2</option>
-                  <option value="N1">N1</option>
-                  <option value="CUSTOM">自定义</option>
-                </select>
-              </label>
-              <label>
-                <span>范围</span>
-                <select id="studyScope">
-                  <option value="new">新词</option>
-                  <option value="due">到期复习</option>
-                  <option value="wrong">错题优先</option>
-                  <option value="starred">收藏词</option>
-                  <option value="all">全部词</option>
-                </select>
-              </label>
-              <label>
-                <span>数量</span>
-                <select id="studyCount">
-                  <option value="10">10</option>
-                  <option value="20">20</option>
-                  <option value="30">30</option>
-                  <option value="40">40</option>
-                  <option value="50">50</option>
-                  <option value="custom">自定义</option>
-                </select>
-              </label>
-              <label id="customCountWrap" class="hidden">
-                <span>自定义数量</span>
-                <input id="customCount" type="number" min="1" max="300" value="25" />
-              </label>
-              <label>
-                <span>顺序</span>
-                <select id="studyOrder">
-                  <option value="level">按等级顺序</option>
-                  <option value="source">按词库顺序</option>
-                  <option value="random">随机</option>
-                </select>
-              </label>
-              <label>
-                <span>题型</span>
-                <select id="studyDirection">
-                  <option value="wordToMeaning">看单词选意思</option>
-                  <option value="meaningToWord">看意思选单词</option>
-                </select>
-              </label>
-            </div>
-          </section>
-
-          <section class="panel">
-            <div class="section-head">
-              <div>
-                <h2>朗读设置</h2>
-                <p>默认按假名朗读，减少汉字词误读</p>
-              </div>
-              <button class="secondary" id="testSpeechBtn">试听朗读</button>
-            </div>
-            <div class="speech-settings">
-              <label>
-                <span>朗读内容</span>
-                <select id="speechMode">
-                  <option value="kana">优先假名</option>
-                  <option value="word">优先写法</option>
-                  <option value="both">假名 + 写法</option>
-                </select>
-              </label>
-              <label class="wide speech-voice-field">
-                <span>日语音色</span>
-                <select id="speechVoice">
-                  <option value="">自动选择</option>
-                </select>
-              </label>
-              <label>
-                <span>语速 <strong id="speechRateValue">0.82</strong></span>
-                <input id="speechRate" type="range" min="0.65" max="1.10" step="0.01" value="0.82" />
-              </label>
-              <label>
-                <span>音高 <strong id="speechPitchValue">1.00</strong></span>
-                <input id="speechPitch" type="range" min="0.80" max="1.20" step="0.01" value="1.00" />
-              </label>
-            </div>
-          </section>
-        </section>
-      </main>
-    </div>
-
-    <button class="floating-top hidden" id="floatingTopBtn" aria-label="回到顶部" title="回到顶部">↑</button>
-
-    <template id="wordItemTemplate">
-      <article class="word-item">
-        <label class="select-word-wrap">
-          <input class="select-word" type="checkbox" />
-        </label>
-        <div class="word-main">
-          <div class="word-title-row">
-            <strong class="word-title"></strong>
-          <span class="pill level-pill"></span>
-          <span class="pill type-pill"></span>
-          <span class="pill source-pill"></span>
+          </article>
+          <article class="card">
+            <div class="card-head compact"><div><span class="section-kicker">需要关注</span><h3>薄弱词 Top 8</h3></div></div>
+            <div id="difficultList" class="compact-word-list"></div>
+          </article>
         </div>
-          <p class="word-kana"></p>
-          <p class="word-meaning"></p>
-        </div>
-        <div class="word-actions">
-          <button class="ghost small speak-word">朗读</button>
-          <button class="ghost small star-word">收藏</button>
-          <button class="ghost small delete-word">删除</button>
-        </div>
-      </article>
-    </template>
+      </section>
 
-    <script src="./assets/vocab-data.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="./app.js"></script>
-  </body>
+      <section id="settingsView" class="view">
+        <div class="settings-stack">
+          <article class="card settings-card">
+            <div class="settings-copy"><span class="section-kicker">外观</span><h3>显示主题</h3><p>可跟随系统，也可固定浅色或深色。</p></div>
+            <div class="segmented" id="themeSegment">
+              <button data-theme-option="system">跟随系统</button>
+              <button data-theme-option="light" class="active">浅色</button>
+              <button data-theme-option="dark">深色</button>
+            </div>
+          </article>
+
+          <article class="card settings-card vertical-on-mobile">
+            <div class="settings-copy"><span class="section-kicker">学习习惯</span><h3>每日目标</h3><p>以题目数量计算，建议从 20 题开始。</p></div>
+            <div class="range-control"><input id="dailyGoal" type="range" min="5" max="100" step="5" value="20" /><strong id="dailyGoalValue">20 题</strong></div>
+          </article>
+
+          <article class="card settings-card vertical-on-mobile">
+            <div class="settings-copy"><span class="section-kicker">学习体验</span><h3>自动朗读</h3><p>进入新卡片时自动朗读日语内容。</p></div>
+            <label class="switch"><input id="autoSpeak" type="checkbox" checked /><span></span></label>
+          </article>
+
+          <article class="card settings-card settings-form-card">
+            <div class="settings-copy"><span class="section-kicker">朗读</span><h3>日语语音</h3><p>仅使用七海（女声）与圭太（男声），并优先朗读假名。</p></div>
+            <div class="form-grid two-col settings-form">
+              <label class="field"><span>朗读内容</span><select id="speechMode"><option value="kana">优先假名</option><option value="word">优先写法</option><option value="both">假名 + 写法</option></select></label>
+              <label class="field"><span>日语音色</span><select id="speechVoice"><option value="">正在检测七海 / 圭太…</option></select></label>
+              <label class="field range-field"><span>语速 <strong id="speechRateValue">0.85</strong></span><input id="speechRate" type="range" min="0.65" max="1.15" step="0.01" value="0.85" /></label>
+              <label class="field range-field"><span>音高 <strong id="speechPitchValue">1.00</strong></span><input id="speechPitch" type="range" min="0.8" max="1.2" step="0.01" value="1" /></label>
+              <button class="button secondary full-span" id="testSpeechBtn"><svg><use href="#i-volume"></use></svg>试听「日本語を勉強します」</button>
+            </div>
+          </article>
+
+          <article class="card settings-card danger-settings">
+            <div class="settings-copy"><span class="section-kicker">危险操作</span><h3>清空学习进度</h3><p>词库不会删除，但所有复习安排与统计会归零。</p></div>
+            <button class="button danger-ghost" id="resetProgressBtn">清空进度</button>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <nav class="mobile-nav" aria-label="移动端主导航">
+      <button class="active" data-view="dashboardView"><svg><use href="#i-home"></use></svg><span>今日</span></button>
+      <button data-view="libraryView"><svg><use href="#i-book"></use></svg><span>词汇</span></button>
+      <button class="mobile-study-button" data-view="studyView"><span class="study-orb"><svg><use href="#i-spark"></use></svg></span><span>学习</span></button>
+      <button data-view="insightsView"><svg><use href="#i-chart"></use></svg><span>进度</span></button>
+      <button data-view="settingsView"><svg><use href="#i-settings"></use></svg><span>设置</span></button>
+    </nav>
+  </div>
+
+  <section id="studyOverlay" class="study-overlay hidden" aria-label="学习模式" aria-live="polite">
+    <header class="study-topbar">
+      <button class="icon-button study-close" id="closeStudyBtn" aria-label="退出学习"><svg><use href="#i-close"></use></svg></button>
+      <div class="study-progress-wrap"><div class="study-progress-meta"><span id="sessionCounter">1 / 20</span><span id="sessionAccuracy">正确率 0%</span></div><div class="study-progress"><span id="sessionProgressBar"></span></div></div>
+      <div class="study-top-actions">
+        <button class="icon-button" id="studySpeakBtn" aria-label="朗读"><svg><use href="#i-volume"></use></svg></button>
+        <button class="icon-button" id="studyStarBtn" aria-label="收藏"><svg><use href="#i-star"></use></svg></button>
+      </div>
+    </header>
+
+    <main class="study-stage">
+      <div id="studyCard" class="study-card-main">
+        <div class="study-card-meta"><span id="studyCardLevel" class="level-badge">N5</span><span id="studyPromptLabel">选择正确含义</span></div>
+        <div class="study-prompt">
+          <h2 id="studyPrompt">勉強</h2>
+          <p id="studyPromptSub">べんきょう · 名・自動3</p>
+        </div>
+        <div id="studyOptions" class="study-options"></div>
+        <form id="typingAnswerForm" class="typing-answer hidden"><input id="typingAnswer" autocomplete="off" placeholder="输入日语写法" /><button class="button primary" type="submit">确认</button></form>
+        <button id="showAnswerBtn" class="button ghost reveal-button">显示答案 <kbd>Space</kbd></button>
+        <div id="answerPanel" class="answer-panel hidden">
+          <div class="answer-status"><span id="answerStatusIcon"><svg><use href="#i-check"></use></svg></span><div><strong id="answerStatusTitle">回答正确</strong><p id="answerStatusText">勉強 · べんきょう · 学习，用功</p></div></div>
+          <div class="answer-navigation">
+            <button class="button secondary" id="previousCardBtn" type="button"><span aria-hidden="true">←</span> 上一题</button>
+            <button class="button primary" id="nextCardBtn" type="button">下一题 <span aria-hidden="true">→</span><kbd>Enter</kbd></button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="study-footer"><span>快捷键：<kbd>Enter</kbd> 下一题　<kbd>←</kbd><kbd>→</kbd> 切换题目　<kbd>S</kbd> 朗读　<kbd>Esc</kbd> 退出</span><button class="text-button" id="skipCardBtn">暂时跳过</button></footer>
+  </section>
+
+  <dialog id="wordDialog" class="word-dialog">
+    <form method="dialog" class="dialog-shell">
+      <header class="dialog-head"><div><span id="dialogLevel" class="level-badge">N5</span><span id="dialogSource" class="soft-pill">内置词库</span></div><button class="icon-button" value="cancel" aria-label="关闭"><svg><use href="#i-close"></use></svg></button></header>
+      <div class="dialog-word"><h2 id="dialogWord">勉強</h2><p id="dialogKana">べんきょう</p><button class="icon-button" type="button" id="dialogSpeakBtn" aria-label="朗读"><svg><use href="#i-volume"></use></svg></button></div>
+      <div class="dialog-meaning"><span>含义</span><p id="dialogMeaning">学习，用功</p></div>
+      <dl class="word-detail-grid"><div><dt>词性</dt><dd id="dialogPos">名词</dd></div><div><dt>音调</dt><dd id="dialogAccent">⓪</dd></div><div><dt>学习次数</dt><dd id="dialogSeen">0</dd></div><div><dt>下次复习</dt><dd id="dialogDue">未安排</dd></div></dl>
+      <div id="dialogNoteWrap" class="dialog-note hidden"><span>备注</span><p id="dialogNote"></p></div>
+      <footer class="dialog-actions"><button class="button danger-ghost" type="button" id="dialogDeleteBtn">删除/隐藏</button><div><button class="button secondary" type="button" id="dialogStarBtn">收藏</button><button class="button primary" type="button" id="dialogStudyBtn">立即学习</button></div></footer>
+    </form>
+  </dialog>
+
+  <dialog id="confirmDialog" class="confirm-dialog">
+    <form method="dialog" class="dialog-shell compact-dialog">
+      <div class="confirm-icon"><svg><use href="#i-trash"></use></svg></div>
+      <h2 id="confirmTitle">确认操作</h2>
+      <p id="confirmMessage">这个操作无法撤销。</p>
+      <div class="dialog-actions end"><button class="button secondary" value="cancel">取消</button><button class="button danger" id="confirmOkBtn" value="default">确认</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="sessionSummaryDialog" class="summary-dialog">
+    <form method="dialog" class="dialog-shell summary-shell">
+      <div class="summary-badge"><svg><use href="#i-spark"></use></svg></div>
+      <span class="section-kicker">本轮完成</span>
+      <h2>做得很好，记忆又向前了一步。</h2>
+      <div class="summary-metrics"><div><strong id="summaryCorrect">0</strong><span>记得</span></div><div><strong id="summaryAccuracy">0%</strong><span>正确率</span></div><div><strong id="summaryMinutes">0</strong><span>分钟</span></div></div>
+      <p id="summaryMessage">本轮学习记录已保存。</p>
+      <div class="dialog-actions center"><button class="button secondary" value="close">返回首页</button><button class="button primary" type="button" id="studyAgainBtn">再来一轮</button></div>
+    </form>
+  </dialog>
+
+  <input id="backupFileInput" type="file" accept="application/json,.json" hidden />
+  <div id="toastRegion" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="./assets/vocab-data.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="./app.js"></script>
+</body>
 </html>
