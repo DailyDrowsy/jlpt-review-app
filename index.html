@@ -8,7 +8,7 @@
   <title>Kotoba Flow · JLPT 日语复习</title>
   <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./styles.css?v=20260629-ocr-title" />
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true">
@@ -257,22 +257,25 @@
         <div class="content-grid two-one manage-grid">
           <article class="card">
             <div class="card-head"><div><span class="section-kicker">快速添加</span><h3>添加一个单词</h3></div></div>
-            <div id="ocrDropZone" class="ocr-drop-zone" role="button" tabindex="0" aria-label="拖入或选择查词截图自动填字段">
-              <input id="ocrImageInput" type="file" accept="image/png,image/jpeg,image/webp" />
-              <svg><use href="#i-upload"></use></svg>
-              <strong>拖入查词截图自动填字段</strong>
-              <span>支持 PNG、JPG、WebP，也可以复制截图后在本页粘贴</span>
+            <div id="ocrDropZone" class="ocr-paste-panel" role="button" tabindex="0" aria-label="粘贴查词截图自动识别字段">
+              <input id="ocrImageInput" type="file" accept="image/png,image/jpeg,image/webp" hidden />
+              <span class="ocr-paste-icon"><svg><use href="#i-upload"></use></svg></span>
+              <span class="ocr-paste-copy">
+                <strong>粘贴查词截图</strong>
+                <span>截图后点这里按 Ctrl+V，自动归类写法、假名、含义、词性和例句</span>
+              </span>
+              <small>也可以把截图直接拖到这里</small>
             </div>
             <div id="ocrStatus" class="ocr-status hidden" aria-live="polite"></div>
             <form id="addWordForm" class="form-grid two-col" autocomplete="off" data-form-type="other">
               <label class="field"><span>等级</span><select id="addLevel"><option>N5</option><option>N4</option><option>N3</option><option>N2</option><option>N1</option><option value="CUSTOM">自定义</option></select></label>
-              <label class="field"><span>手动添加归属</span><input id="addSource" value="我的词库" autocomplete="new-password" /></label>
-              <label class="field"><span>写法 *</span><input id="addWord" placeholder="勉強" autocomplete="new-password" required /></label>
-              <label class="field"><span>假名</span><input id="addKana" placeholder="べんきょう" autocomplete="new-password" /></label>
-              <label class="field"><span>词性</span><input id="addPos" placeholder="名・自動3" autocomplete="new-password" /></label>
-              <label class="field"><span>音调</span><input id="addAccent" placeholder="⓪" autocomplete="new-password" /></label>
-              <label class="field full-span"><span>含义 *</span><input id="addMeaning" placeholder="学习，用功" autocomplete="new-password" required /></label>
-              <label class="field full-span"><span>备注</span><textarea id="addNote" rows="3" placeholder="例句、易混淆点或记忆提示" autocomplete="new-password"></textarea></label>
+              <label class="field"><span>手动添加归属</span><div id="addSource" class="field-control" role="textbox" tabindex="0" contenteditable="true" data-placeholder="我的词库">我的词库</div></label>
+              <label class="field"><span>写法 *</span><div id="addWord" class="field-control jp-field" role="textbox" tabindex="0" contenteditable="true" data-placeholder="勉強" aria-required="true"></div></label>
+              <label class="field"><span>假名</span><div id="addKana" class="field-control jp-field" role="textbox" tabindex="0" contenteditable="true" data-placeholder="べんきょう"></div></label>
+              <label class="field"><span>词性</span><div id="addPos" class="field-control" role="textbox" tabindex="0" contenteditable="true" data-placeholder="名・自動3"></div></label>
+              <label class="field"><span>音调</span><div id="addAccent" class="field-control" role="textbox" tabindex="0" contenteditable="true" data-placeholder="⓪"></div></label>
+              <label class="field full-span"><span>含义 *</span><div id="addMeaning" class="field-control" role="textbox" tabindex="0" contenteditable="true" data-placeholder="学习，用功" aria-required="true"></div></label>
+              <label class="field full-span"><span>备注</span><div id="addNote" class="field-control multiline" role="textbox" tabindex="0" contenteditable="true" data-multiline="true" data-placeholder="例句、易混淆点或记忆提示"></div></label>
               <button class="button primary full-span" type="submit"><svg><use href="#i-plus"></use></svg>添加到词库</button>
             </form>
           </article>
@@ -485,6 +488,6 @@
 
   <script src="./assets/vocab-data.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="./app.js"></script>
+  <script src="./app.js?v=20260629-ocr-title"></script>
 </body>
 </html>

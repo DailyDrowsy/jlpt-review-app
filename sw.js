@@ -1,4 +1,4 @@
-const CACHE_NAME = "kotoba-flow-v6";
+const CACHE_NAME = "kotoba-flow-v8";
 const APP_SHELL = [
   "./",
   "./index.html",
