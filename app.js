@@ -22,7 +22,7 @@
   ];
   const DAY = 24 * 60 * 60 * 1000;
   const OCR_SCRIPT_URL = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
-  const OCR_FIELD_KEYS = ["word", "kana", "pos", "accent", "meaning", "note"];
+  const OCR_FIELD_KEYS = ["word", "kana", "pos", "accent", "meaning"];
   const CHOICE_MODES = new Set(["wordToMeaning", "meaningToKana", "listening"]);
   const KANA_TILE_POOL = [..."あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをんがぎぐげござじずぜぞだでどばびぶべぼぱぴぷぺぽー"];
 
@@ -1919,6 +1919,7 @@
       return;
     }
     state.ocr.busy = true;
+    clearOcrFilledFields();
     setOcrStatus("loading", "正在加载 OCR，首次使用可能需要几十秒…");
     try {
       await ensureOcrLibrary();
@@ -1988,15 +1989,19 @@
       pos: "addPos",
       accent: "addAccent",
       meaning: "addMeaning",
-      note: "addNote",
     };
     Object.entries(mapping).forEach(([key, id]) => {
-      const value = key === "note" ? String(fields[key] ?? "").replace(/\r\n?/g, "\n").trim() : normalizeText(fields[key]);
+      const value = normalizeText(fields[key]);
       if (value) setFieldValue(id, value);
     });
+    setFieldValue("addNote", "");
     if (!fieldValue("addSource").trim()) setFieldValue("addSource", "截图词库");
     if ($("addLevel").value !== "CUSTOM") $("addLevel").value = "CUSTOM";
     $("addWord").focus();
+  }
+
+  function clearOcrFilledFields() {
+    ["addWord", "addKana", "addPos", "addAccent", "addMeaning", "addNote"].forEach((id) => setFieldValue(id, ""));
   }
 
   function correctOcrFields(fields, titleCandidates = [], options = {}) {
@@ -2017,6 +2022,15 @@
       if (!normalizeText(corrected.pos) && vocabularyMatch.pos) corrected.pos = vocabularyMatch.pos;
       if (!normalizeText(corrected.accent) && vocabularyMatch.accent) corrected.accent = vocabularyMatch.accent;
       if (!normalizeText(corrected.meaning) && vocabularyMatch.meaning) corrected.meaning = vocabularyMatch.meaning;
+    }
+    const kanaFallback = kanaWordFallbackFromOcr(corrected);
+    if (kanaFallback) {
+      corrected.word = kanaFallback;
+      notes.push("写法已按假名兜底");
+    }
+    if (isSuspiciousOcrWord(corrected.word)) {
+      corrected.word = "";
+      notes.push("写法未能可靠识别");
     }
     if (notes.length) corrected._ocrCorrection = [...new Set([corrected._ocrCorrection, ...notes].filter(Boolean))].join("，");
     return corrected;
@@ -2091,10 +2105,42 @@
   function isSuspiciousOcrWord(word) {
     const text = normalizeText(word);
     if (!text) return true;
+    if (hasOcrNavigationText(text)) return true;
+    if (hasSimplifiedOnlyCjk(text)) return true;
+    if (/^[一-龯々〆ヵヶ]{3,}[ぁ-んァ-ヶー]{2,}$/.test(text)) return true;
     if (/^[一二三四五六七八九十〇零0-9\-—ー]+$/.test(text)) return true;
     if (/^[|｜\-—]+$/.test(text)) return true;
     if (/^(名|動|形|副|中|日|AI|生成)$/.test(text)) return true;
     return false;
+  }
+
+  function hasOcrNavigationText(value) {
+    return /(返回|戻る|もどる|back|go back)/i.test(normalizeText(value));
+  }
+
+  function hasSimplifiedOnlyCjk(value) {
+    return /[单简识页备归这过还时见贝车东话语汉应]/.test(normalizeText(value));
+  }
+
+  function kanaWordFallbackFromOcr(fields) {
+    const word = normalizeText(fields?.word);
+    const kana = normalizeKanaKey(fields?.kana);
+    if (!kana || kana.length < 4 || !word || !isSuspiciousOcrWord(word)) return "";
+    const wordKana = toHiragana(word).split("").filter((char) => /[ぁ-んー]/.test(char)).join("");
+    if (wordKana.length < 2) return "";
+    return longestCommonSubstringLength(wordKana, kana) >= 2 ? kana : "";
+  }
+
+  function longestCommonSubstringLength(a, b) {
+    let best = 0;
+    for (let i = 0; i < a.length; i += 1) {
+      for (let j = 0; j < b.length; j += 1) {
+        let length = 0;
+        while (a[i + length] && a[i + length] === b[j + length]) length += 1;
+        best = Math.max(best, length);
+      }
+    }
+    return best;
   }
 
   function shouldPreferOcrWord(candidate, current, confidence = 1) {
@@ -2130,9 +2176,11 @@
     const width = image.width || image.naturalWidth;
     const height = image.height || image.naturalHeight;
     const specs = [
-      { x: 0, y: 0, w: 0.62, h: 0.15, scale: 3, threshold: false },
-      { x: 0, y: 0, w: 0.72, h: 0.18, scale: 3, threshold: true },
-      { x: 0, y: 0.01, w: 0.54, h: 0.12, scale: 4, threshold: true },
+      { x: 0.02, y: 0.035, w: 0.76, h: 0.14, scale: 3, threshold: false },
+      { x: 0.02, y: 0.06, w: 0.78, h: 0.16, scale: 3, threshold: true },
+      { x: 0.02, y: 0.09, w: 0.78, h: 0.18, scale: 4, threshold: true },
+      { x: 0.02, y: 0.12, w: 0.78, h: 0.2, scale: 4, threshold: false },
+      { x: 0.12, y: 0.04, w: 0.68, h: 0.16, scale: 4, threshold: true },
     ];
     const variants = [];
     for (const spec of specs) {
@@ -2238,8 +2286,7 @@
     const kana = pickOcrKana(lines, wordLine);
     const pos = pickOcrPos(lines);
     const meaning = pickOcrMeaning(lines);
-    const note = pickOcrExampleNote(lines);
-    return { word, kana, pos, accent, meaning, note };
+    return { word, kana, pos, accent, meaning };
   }
 
   function normalizeOcrLines(text) {
@@ -2256,6 +2303,7 @@
 
   function looksLikeWordLine(line) {
     if (!line || isOcrNoiseLine(line)) return false;
+    if (hasOcrNavigationText(line)) return false;
     if (!/[一-龯々〆ヵヶぁ-んァ-ヶー]/.test(line)) return false;
     if (line.length > 28 && !/[⓪①②③④⑤⑥⑦⑧⑨]/.test(line)) return false;
     return true;
@@ -2264,6 +2312,8 @@
   function cleanOcrWord(line = "") {
     const clean = normalizeText(line)
       .replace(/[⓪①②③④⑤⑥⑦⑧⑨]/g, "")
+      .replace(/[く＜<〈‹]\s*(返回|戻る|もどる|back|go back)/ig, " ")
+      .replace(/(返回|戻る|もどる|back|go back)/ig, " ")
       .replace(/[|｜].*$/g, "")
       .replace(/[a-zA-Z][a-zA-Z0-9_-]*/g, " ")
       .replace(/[^\u3040-\u30ff\u3400-\u9fff々〆ヵヶー〜～・]/g, " ");
@@ -2347,6 +2397,7 @@
 
   function isOcrNoiseLine(line) {
     const text = normalizeText(line);
+    if (hasOcrNavigationText(text)) return true;
     return /^(AI生成|AI|生成|管理个人信息|保存的信息|上次使用)$/i.test(text)
       || /^(释义|釈義|简明释义|簡明釈義|简明|簡明)/.test(text);
   }
