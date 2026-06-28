@@ -21,6 +21,7 @@
     { key: "keita", label: "圭太（男声）", terms: ["keita", "圭太"] },
   ];
   const DAY = 24 * 60 * 60 * 1000;
+  const OCR_SCRIPT_URL = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
   const CHOICE_MODES = new Set(["wordToMeaning", "meaningToKana", "listening"]);
   const KANA_TILE_POOL = [..."あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをんがぎぐげござじずぜぞだでどばびぶべぼぱぴぷぺぽー"];
 
@@ -94,6 +95,7 @@
     session: null,
     summaryDestination: null,
     voices: [],
+    ocr: { busy: false, scriptPromise: null },
     kanaScrubber: { items: [], dragging: false, raf: 0 },
   };
 
@@ -105,6 +107,7 @@
   async function init() {
     loadPersistentState();
     applyTheme();
+    disableBrowserFormReuse();
     bindNavigation();
     bindGlobalActions();
     bindLibraryEvents();
@@ -424,6 +427,7 @@
 
   function bindManageEvents() {
     $("addWordForm").addEventListener("submit", addSingleWord);
+    bindOcrDropZone();
     $("importWordsInput").addEventListener("change", (event) => importWordFiles([...event.target.files]));
     const dropZone = $("dropZone");
     ["dragenter", "dragover"].forEach((type) => dropZone.addEventListener(type, (event) => {
@@ -443,6 +447,44 @@
     $("sourceOverview").addEventListener("click", (event) => {
       const button = event.target.closest("[data-delete-source]");
       if (button) deleteSource(button.dataset.deleteSource);
+    });
+  }
+
+  function bindOcrDropZone() {
+    const zone = $("ocrDropZone");
+    const input = $("ocrImageInput");
+    if (!zone || !input) return;
+    zone.addEventListener("click", () => input.click());
+    zone.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        input.click();
+      }
+    });
+    input.addEventListener("change", (event) => {
+      const file = event.target.files?.[0];
+      event.target.value = "";
+      if (file) handleOcrImage(file);
+    });
+    ["dragenter", "dragover"].forEach((type) => zone.addEventListener(type, (event) => {
+      event.preventDefault();
+      zone.classList.add("dragging");
+    }));
+    ["dragleave", "drop"].forEach((type) => zone.addEventListener(type, (event) => {
+      event.preventDefault();
+      zone.classList.remove("dragging");
+    }));
+    zone.addEventListener("drop", (event) => {
+      const file = [...event.dataTransfer.files].find((item) => item.type.startsWith("image/"));
+      if (file) handleOcrImage(file);
+      else toast("请拖入 PNG、JPG 或 WebP 截图。", "error");
+    });
+    document.addEventListener("paste", (event) => {
+      if (state.activeView !== "manageView" || state.ocr.busy) return;
+      const file = [...(event.clipboardData?.files || [])].find((item) => item.type.startsWith("image/"));
+      if (!file) return;
+      event.preventDefault();
+      handleOcrImage(file);
     });
   }
 
@@ -559,6 +601,26 @@
     renderManage();
     renderInsights();
     renderSettings();
+  }
+
+  function disableBrowserFormReuse() {
+    const nonce = Date.now().toString(36);
+    $$("form").forEach((form) => {
+      form.setAttribute("autocomplete", "off");
+      form.setAttribute("data-form-type", "other");
+    });
+    $$("input, textarea").forEach((field, index) => {
+      const type = String(field.getAttribute("type") || "").toLowerCase();
+      if (["file", "range", "checkbox", "radio", "button", "submit", "reset"].includes(type)) return;
+      const isSearch = type === "search";
+      field.setAttribute("autocomplete", isSearch ? "off" : "new-password");
+      field.setAttribute("autocorrect", "off");
+      field.setAttribute("autocapitalize", "off");
+      field.setAttribute("spellcheck", "false");
+      field.setAttribute("data-lpignore", "true");
+      field.setAttribute("data-form-type", "other");
+      field.name = `kf-${field.id || "field"}-${nonce}-${index}`;
+    });
   }
 
   function renderDashboard() {
@@ -1754,6 +1816,210 @@
     }).join("") || `<div class="empty-state">暂无词库</div>`;
   }
 
+  async function handleOcrImage(file) {
+    if (!file || !file.type.startsWith("image/")) {
+      toast("请使用截图图片文件。", "error");
+      return;
+    }
+    if (state.ocr.busy) {
+      toast("正在识别上一张截图，请稍等。", "error");
+      return;
+    }
+    state.ocr.busy = true;
+    setOcrStatus("loading", "正在加载 OCR，首次使用可能需要几十秒…");
+    try {
+      await ensureOcrLibrary();
+      setOcrStatus("loading", "正在识别截图文字…");
+      const result = await window.Tesseract.recognize(file, "jpn+chi_sim+eng", {
+        logger: (event) => {
+          if (!event || event.status !== "recognizing text") return;
+          const pct = Math.round((event.progress || 0) * 100);
+          setOcrStatus("loading", `正在识别截图文字… ${pct}%`);
+        },
+      });
+      const text = result?.data?.text || "";
+      const fields = parseDictionaryOcrText(text);
+      fillAddWordFormFromOcr(fields);
+      const found = Object.entries(fields).filter(([, value]) => normalizeText(value)).map(([key]) => ocrFieldLabel(key));
+      setOcrStatus(found.length ? "success" : "error", found.length ? `已填入：${found.join("、")}` : "没有识别到可用字段，请换一张更清晰的截图。", fields);
+      if (fields.word || fields.meaning) toast("截图识别完成，请确认字段后添加。", "success");
+      else toast("未能识别主要字段。", "error");
+    } catch (error) {
+      setOcrStatus("error", error?.message || "截图识别失败，请确认网络和图片清晰度。");
+      toast("截图识别失败。", "error", 5200);
+    } finally {
+      state.ocr.busy = false;
+    }
+  }
+
+  function ensureOcrLibrary() {
+    if (window.Tesseract?.recognize) return Promise.resolve();
+    if (!state.ocr.scriptPromise) state.ocr.scriptPromise = loadExternalScript(OCR_SCRIPT_URL);
+    return state.ocr.scriptPromise;
+  }
+
+  function setOcrStatus(type, message, fields = null) {
+    const root = $("ocrStatus");
+    if (!root) return;
+    root.className = `ocr-status ${type || ""}`.trim();
+    const chips = fields ? Object.entries(fields)
+      .filter(([, value]) => normalizeText(value))
+      .map(([key, value]) => `<span><strong>${escapeHtml(ocrFieldLabel(key))}</strong>${escapeHtml(String(value).slice(0, 42))}</span>`)
+      .join("") : "";
+    root.innerHTML = `<p>${escapeHtml(message)}</p>${chips ? `<div>${chips}</div>` : ""}`;
+  }
+
+  function ocrFieldLabel(key) {
+    return {
+      word: "写法",
+      kana: "假名",
+      pos: "词性",
+      accent: "音调",
+      meaning: "含义",
+      note: "备注",
+    }[key] || key;
+  }
+
+  function fillAddWordFormFromOcr(fields) {
+    if (!fields || typeof fields !== "object") return;
+    const mapping = {
+      word: "addWord",
+      kana: "addKana",
+      pos: "addPos",
+      accent: "addAccent",
+      meaning: "addMeaning",
+      note: "addNote",
+    };
+    Object.entries(mapping).forEach(([key, id]) => {
+      const value = normalizeText(fields[key]);
+      if (value) $(id).value = value;
+    });
+    if (!$("addSource").value.trim()) $("addSource").value = "截图词库";
+    if ($("addLevel").value !== "CUSTOM") $("addLevel").value = "CUSTOM";
+    $("addWord").focus();
+  }
+
+  function parseDictionaryOcrText(text) {
+    const lines = normalizeOcrLines(text);
+    const wordLine = lines.find((line) => looksLikeWordLine(line));
+    const word = cleanOcrWord(wordLine);
+    const accent = cleanOcrAccent(lines.find((line) => /[⓪①②③④⑤⑥⑦⑧⑨]/.test(line)) || wordLine);
+    const kana = pickOcrKana(lines, wordLine);
+    const pos = pickOcrPos(lines);
+    const meaning = pickOcrMeaning(lines);
+    const note = pickOcrExampleNote(lines);
+    return { word, kana, pos, accent, meaning, note };
+  }
+
+  function normalizeOcrLines(text) {
+    return String(text || "")
+      .replace(/[|｜]/g, " | ")
+      .split(/\r?\n/)
+      .map((line) => normalizeText(line)
+        .replace(/([一-龯々〆ヵヶぁ-んァ-ヶー])\s+(?=[一-龯々〆ヵヶぁ-んァ-ヶー])/g, "$1")
+        .replace(/\s+([。。，，；;])/g, "$1")
+        .replace(/([（(])\s+/g, "$1")
+        .replace(/\s+([）)])/g, "$1"))
+      .filter(Boolean);
+  }
+
+  function looksLikeWordLine(line) {
+    if (!line || isOcrNoiseLine(line)) return false;
+    if (!/[一-龯々〆ヵヶぁ-んァ-ヶー]/.test(line)) return false;
+    if (line.length > 28 && !/[⓪①②③④⑤⑥⑦⑧⑨]/.test(line)) return false;
+    return true;
+  }
+
+  function cleanOcrWord(line = "") {
+    const clean = normalizeText(line)
+      .replace(/[⓪①②③④⑤⑥⑦⑧⑨]/g, "")
+      .replace(/[|｜].*$/g, "")
+      .replace(/[a-zA-Z][a-zA-Z0-9_-]*/g, " ")
+      .replace(/[^\u3040-\u30ff\u3400-\u9fff々〆ヵヶー〜～・]/g, " ");
+    const parts = clean.match(/[一-龯々〆ヵヶぁ-んァ-ヶー〜～・]+/g) || [];
+    return normalizeText(parts.sort((a, b) => b.length - a.length)[0] || "");
+  }
+
+  function cleanOcrAccent(line = "") {
+    const match = String(line || "").match(/[⓪①②③④⑤⑥⑦⑧⑨]/);
+    return match ? match[0] : "";
+  }
+
+  function pickOcrKana(lines, wordLine) {
+    const start = Math.max(0, lines.indexOf(wordLine));
+    const nearby = lines.slice(start, Math.min(lines.length, start + 5));
+    const candidates = nearby
+      .flatMap((line) => line.match(/[ぁ-んァ-ヶー]{2,}/g) || [])
+      .map((value) => toHiragana(value))
+      .filter((value) => value && !["あい", "いい"].includes(value));
+    return candidates.sort((a, b) => b.length - a.length)[0] || "";
+  }
+
+  function pickOcrPos(lines) {
+    const posLine = lines.slice(0, 8).find((line) => {
+      if (isOcrNoiseLine(line)) return false;
+      return /(連語|接頭|接尾|名詞?|動詞?|自動|他動|形容|イ形|ナ形|副詞?|助詞?)/.test(line) || /^名$|^動$|^形$|^副$/.test(line);
+    });
+    if (!posLine) return "";
+    const match = posLine.match(/(連語|接頭|接尾|名詞?|動詞?|自動[0-9３3]?|他動[0-9３3]?|イ形|ナ形|副詞?|助詞?|名|動|形|副)/);
+    return normalizeText(match?.[0] || "");
+  }
+
+  function pickOcrMeaning(lines) {
+    const richMeaning = lines.find((line) => isChineseMeaningLine(line) && /[;；，,、]/.test(line));
+    if (richMeaning) return cleanOcrChineseLine(richMeaning);
+    const summaryIndex = lines.findIndex((line) => /简明释义|簡明釈義|簡明|释义|釈義/.test(line));
+    if (summaryIndex >= 0) {
+      const picked = lines.slice(summaryIndex + 1, summaryIndex + 7).find((line) => isChineseMeaningLine(line));
+      if (picked) return cleanOcrChineseLine(picked);
+    }
+    const afterChineseMark = lines.findIndex((line) => /^中$|^中\s/.test(line));
+    if (afterChineseMark >= 0) {
+      const picked = lines.slice(afterChineseMark + 1, afterChineseMark + 4).find((line) => isChineseMeaningLine(line));
+      if (picked) return cleanOcrChineseLine(picked);
+    }
+    return cleanOcrChineseLine(lines.find((line) => isChineseMeaningLine(line)) || "");
+  }
+
+  function pickOcrExampleNote(lines) {
+    const exampleIndex = lines
+      .map((line, index) => ({ line, index }))
+      .filter(({ line }) => /[ぁ-んァ-ヶ]/.test(line) && /。/.test(line) && line.length >= 9)
+      .map(({ index }) => index)
+      .pop();
+    if (!Number.isInteger(exampleIndex)) return "";
+    const jp = cleanOcrExampleLine(lines[exampleIndex]);
+    const zh = cleanOcrChineseLine(lines.slice(exampleIndex + 1, exampleIndex + 4).find((line) => isChineseMeaningLine(line)) || "");
+    return zh ? `例：${jp}\n译：${zh}` : `例：${jp}`;
+  }
+
+  function cleanOcrExampleLine(line) {
+    const clean = normalizeText(line)
+      .replace(/^[補昌回中日\s]+/g, "")
+      .replace(/[う》]+$/g, "")
+      .replace(/\s+/g, " ");
+    const sentence = clean.match(/[一-龯々〆ヵヶぁ-んァ-ヶー・、]+。/);
+    return sentence ? sentence[0] : clean;
+  }
+
+  function cleanOcrChineseLine(line) {
+    return normalizeText(line).replace(/([一-龯])\s+(?=[一-龯])/g, "$1");
+  }
+
+  function isChineseMeaningLine(line) {
+    if (!line || isOcrNoiseLine(line)) return false;
+    if (/[ぁ-んァ-ヶ]/.test(line)) return false;
+    if (!/[一-龯]/.test(line)) return false;
+    if (/^[中日]$/.test(line)) return false;
+    return normalizeText(line).length >= 3;
+  }
+
+  function isOcrNoiseLine(line) {
+    const text = normalizeText(line);
+    return /^(AI生成|AI|生成|管理个人信息|保存的信息|上次使用)$/i.test(text)
+      || /^(释义|釈義|简明释义|簡明釈義|简明|簡明)/.test(text);
+  }
+
   function addSingleWord(event) {
     event.preventDefault();
     const word = normalizeText($("addWord").value);
@@ -2613,6 +2879,31 @@
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
+  }
+
+  function loadExternalScript(src) {
+    return new Promise((resolve, reject) => {
+      const existing = document.querySelector(`script[src="${CSS.escape(src)}"]`);
+      if (existing) {
+        if (existing.dataset.loaded === "true") {
+          resolve();
+          return;
+        }
+        existing.addEventListener("load", resolve, { once: true });
+        existing.addEventListener("error", reject, { once: true });
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = src;
+      script.async = true;
+      script.crossOrigin = "anonymous";
+      script.addEventListener("load", () => {
+        script.dataset.loaded = "true";
+        resolve();
+      }, { once: true });
+      script.addEventListener("error", () => reject(new Error("OCR 脚本加载失败，请检查网络后重试。")), { once: true });
+      document.head.appendChild(script);
+    });
   }
 
   function loadJson(key, fallback) {

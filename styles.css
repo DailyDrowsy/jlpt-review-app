@@ -655,6 +655,41 @@ html[data-theme="dark"] .vocab-level-mark { color: #13221d; }
 
 .manage-grid { align-items: start; }
 .import-card { display: grid; gap: 13px; }
+.ocr-drop-zone {
+  min-height: 118px;
+  margin-bottom: 14px;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 7px;
+  background: var(--surface-2);
+  text-align: center;
+  cursor: pointer;
+  transition: .18s ease;
+}
+.ocr-drop-zone:hover,
+.ocr-drop-zone.dragging,
+.ocr-drop-zone:focus-visible { border-color: var(--primary); background: var(--primary-soft); }
+.ocr-drop-zone input { display: none; }
+.ocr-drop-zone svg { font-size: 28px; color: var(--primary); }
+.ocr-drop-zone strong { font-size: 13px; }
+.ocr-drop-zone span { color: var(--muted); font-size: 10px; }
+.ocr-status {
+  margin: -4px 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  padding: 11px 12px;
+  background: var(--surface-2);
+}
+.ocr-status.loading { border-color: color-mix(in srgb, var(--primary) 26%, var(--line)); }
+.ocr-status.success { border-color: color-mix(in srgb, var(--success) 32%, var(--line)); background: var(--success-soft); }
+.ocr-status.error { border-color: color-mix(in srgb, var(--danger) 28%, var(--line)); background: var(--danger-soft); }
+.ocr-status p { margin: 0; color: var(--muted); font-size: 11px; font-weight: 700; }
+.ocr-status > div { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.ocr-status span { max-width: 100%; border-radius: 999px; padding: 5px 8px; background: color-mix(in srgb, var(--surface) 76%, transparent); color: var(--muted); font-size: 10px; }
+.ocr-status strong { margin-right: 5px; color: var(--primary); }
 .drop-zone { min-height: 188px; border: 1.5px dashed var(--line-strong); border-radius: 16px; display: grid; place-items: center; align-content: center; gap: 8px; background: var(--surface-2); text-align: center; cursor: pointer; transition: .18s ease; }
 .drop-zone:hover, .drop-zone.dragging { border-color: var(--primary); background: var(--primary-soft); }
 .drop-zone input { display: none; }
