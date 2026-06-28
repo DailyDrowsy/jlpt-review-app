@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#315f53" />
   <meta name="description" content="更专注、更顺手的 JLPT 日语词汇复习工具。" />
   <title>Kotoba Flow · JLPT 日语复习</title>
+  <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="stylesheet" href="./styles.css" />
 </head>
@@ -28,6 +29,7 @@
     <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></symbol>
     <symbol id="i-trash" viewBox="0 0 24 24"><path d="M5 7h14M9 7V4h6v3m-8 0 1 13h8l1-13M10 11v5m4-5v5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4 10-10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 19V5m0 0-6 6m6-6 6 6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="19" cy="12" r="1.4" fill="currentColor"/></symbol>
     <symbol id="i-flame" viewBox="0 0 24 24"><path d="M13 3c1 4-2 4.7-1 8 1-1 2-2 3-3 2 2 3 4 3 6.5a6 6 0 1 1-12 0c0-3 1.8-5.8 5-8.5-.3 2.8.4 4 1.2 4.8C13.5 8.5 14 6 13 3Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
   </svg>
@@ -35,7 +37,13 @@
   <div class="app-shell">
     <aside class="sidebar" aria-label="主导航">
       <div class="brand-block">
-        <div class="brand-mark">言</div>
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 48 48" focusable="false">
+            <path class="mark-ribbon" d="M12 17h18c5.6 0 9.5 3.8 9.5 8.8S35.6 34 29.8 34H13.5" />
+            <path class="mark-ribbon secondary" d="M16 25.5h15.5" />
+            <circle class="mark-dot" cx="35.5" cy="14.5" r="3" />
+          </svg>
+        </div>
         <div>
           <strong>Kotoba Flow</strong>
           <span>JLPT 日语复习</span>
@@ -71,7 +79,13 @@
     </aside>
 
     <header class="mobile-header">
-      <div class="brand-mark small">言</div>
+      <div class="brand-mark small" aria-hidden="true">
+        <svg viewBox="0 0 48 48" focusable="false">
+          <path class="mark-ribbon" d="M12 17h18c5.6 0 9.5 3.8 9.5 8.8S35.6 34 29.8 34H13.5" />
+          <path class="mark-ribbon secondary" d="M16 25.5h15.5" />
+          <circle class="mark-dot" cx="35.5" cy="14.5" r="3" />
+        </svg>
+      </div>
       <div><strong>Kotoba Flow</strong><span id="mobilePageTitle">今日学习</span></div>
       <button class="icon-button" id="mobileThemeBtn" aria-label="切换主题"><svg><use href="#i-moon"></use></svg></button>
     </header>
@@ -171,7 +185,7 @@
         <div class="section-bar">
           <div><strong id="libraryResultCount">0 个词</strong><span id="libraryResultHint">正在载入词库…</span></div>
           <div class="section-bar-actions">
-            <span class="stream-order-note">按 JLPT 等级与假名连续排列</span>
+            <span class="stream-order-note">词汇页按 N1→N5 与假名排列</span>
             <button class="button ghost" data-view-jump="manageView">导入 / 管理</button>
             <button class="button secondary" id="studyFilteredBtn">学习当前结果</button>
           </div>
@@ -198,6 +212,7 @@
             </div>
             <small>假名</small>
           </aside>
+          <button id="libraryTopBtn" class="library-top-button hidden" type="button" aria-label="返回词汇页顶部"><svg><use href="#i-arrow-up"></use></svg></button>
         </div>
       </section>
 
@@ -217,8 +232,8 @@
               <label class="field"><span>JLPT 等级</span><select id="studyLevel"><option value="all">全部等级</option><option>N5</option><option>N4</option><option>N3</option><option>N2</option><option>N1</option><option value="CUSTOM">自定义</option></select></label>
               <label class="field"><span>学习范围</span><select id="studyScope"><option value="today">今日计划</option><option value="due">仅到期复习</option><option value="new">未学习词</option><option value="difficult">薄弱词</option><option value="starred">收藏词</option><option value="all">全部词</option></select></label>
               <label class="field"><span>题目数量</span><select id="studyCount"><option>10</option><option selected>20</option><option>30</option><option>50</option></select></label>
-              <label class="field"><span>题型</span><select id="studyMode"><option value="wordToMeaning">看单词选含义</option><option value="meaningToWord">看含义选单词</option><option value="kanaToWord">看假名选单词</option><option value="typing">看含义输入写法</option></select></label>
-              <label class="field"><span>顺序</span><select id="studyOrder"><option value="smart">智能排序</option><option value="random">随机</option><option value="level">按等级</option></select></label>
+              <div class="study-mix-summary"><span>题型</span><strong>混合练习</strong><small>70% 选择 · 30% 假名 / 听力</small></div>
+              <label class="field"><span>顺序</span><select id="studyOrder"><option value="sequence">顺序</option><option value="random">随机</option></select></label>
               <label class="field"><span>朗读</span><select id="studyAutoSpeak"><option value="inherit">跟随设置</option><option value="on">自动朗读</option><option value="off">不自动朗读</option></select></label>
             </div>
             <button class="button primary full large" id="startStudyBtn"><svg><use href="#i-spark"></use></svg>开始学习</button>
@@ -231,9 +246,9 @@
             <div class="preview-stack">
               <div><span>预计用时</span><strong id="studyEstimate">约 5 分钟</strong></div>
               <div><span>可用词汇</span><strong id="studyPoolCount">0</strong></div>
-              <div><span>学习方式</span><strong id="studyModeLabel">选择题</strong></div>
+              <div><span>题型</span><strong id="studyModeLabel">混合题型</strong></div>
             </div>
-            <div class="keyboard-card"><strong>键盘快捷键</strong><p><kbd>1–4</kbd> 选择答案　<kbd>Space</kbd> 显示答案　<kbd>S</kbd> 朗读　<kbd>F</kbd> 收藏</p></div>
+            <div class="keyboard-card"><strong>键盘快捷键</strong><p><kbd>Space</kbd> 显示答案　<kbd>S</kbd> 朗读　<kbd>F</kbd> 收藏　<kbd>Enter</kbd> 下一题</p></div>
           </aside>
         </div>
       </section>
@@ -244,7 +259,7 @@
             <div class="card-head"><div><span class="section-kicker">快速添加</span><h3>添加一个单词</h3></div></div>
             <form id="addWordForm" class="form-grid two-col">
               <label class="field"><span>等级</span><select id="addLevel"><option>N5</option><option>N4</option><option>N3</option><option>N2</option><option>N1</option><option value="CUSTOM">自定义</option></select></label>
-              <label class="field"><span>词库名</span><input id="addSource" value="我的词库" /></label>
+              <label class="field"><span>手动添加归属</span><input id="addSource" value="我的词库" /></label>
               <label class="field"><span>写法 *</span><input id="addWord" placeholder="勉強" required /></label>
               <label class="field"><span>假名</span><input id="addKana" placeholder="べんきょう" /></label>
               <label class="field"><span>词性</span><input id="addPos" placeholder="名・自動3" /></label>
@@ -264,7 +279,7 @@
               <span>支持 JSON、CSV、TSV、Excel</span>
             </label>
             <label class="field"><span>默认导入等级</span><select id="importDefaultLevel"><option value="CUSTOM">自定义</option><option>N5</option><option>N4</option><option>N3</option><option>N2</option><option>N1</option></select></label>
-            <label class="field"><span>默认词库名</span><input id="importDefaultSource" value="导入词库" /></label>
+            <label class="field"><span>导入默认归属</span><input id="importDefaultSource" value="导入词库" /></label>
             <p class="muted small-text">可识别“单词/写法、假名、含义、词性、音调、等级、词库”等常见表头。</p>
           </article>
         </div>
@@ -352,7 +367,7 @@
           </article>
 
           <article class="card settings-card settings-form-card">
-            <div class="settings-copy"><span class="section-kicker">朗读</span><h3>日语语音</h3><p>仅使用七海（女声）与圭太（男声），并优先朗读假名。</p></div>
+            <div class="settings-copy"><span class="section-kicker">朗读</span><h3>日语语音</h3><p>优先使用七海（女声）与圭太（男声），并回退到系统日语语音。</p></div>
             <div class="form-grid two-col settings-form">
               <label class="field"><span>朗读内容</span><select id="speechMode"><option value="kana">优先假名</option><option value="word">优先写法</option><option value="both">假名 + 写法</option></select></label>
               <label class="field"><span>日语音色</span><select id="speechVoice"><option value="">正在检测七海 / 圭太…</option></select></label>
@@ -391,12 +406,20 @@
 
     <main class="study-stage">
       <div id="studyCard" class="study-card-main">
-        <div class="study-card-meta"><span id="studyCardLevel" class="level-badge">N5</span><span id="studyPromptLabel">选择正确含义</span></div>
+        <div class="study-card-meta">
+          <span id="studyCardLevel" class="level-badge">N5</span>
+          <div class="study-card-meta-actions"><span id="studyPromptLabel">选择正确含义</span><button id="studyMasteredBtn" class="mastered-button" type="button">已掌握</button></div>
+        </div>
         <div class="study-prompt">
           <h2 id="studyPrompt">勉強</h2>
           <p id="studyPromptSub">べんきょう · 名・自動3</p>
         </div>
         <div id="studyOptions" class="study-options"></div>
+        <div id="kanaBuildAnswer" class="kana-build-answer hidden">
+          <div id="kanaBuildSlots" class="kana-build-slots" aria-label="已选择假名"></div>
+          <div id="kanaBuildChoices" class="kana-build-choices" aria-label="假名选项"></div>
+          <button id="kanaBuildSubmit" class="button primary" type="button">确定</button>
+        </div>
         <form id="typingAnswerForm" class="typing-answer hidden"><input id="typingAnswer" autocomplete="off" placeholder="输入日语写法" /><button class="button primary" type="submit">确认</button></form>
         <button id="showAnswerBtn" class="button ghost reveal-button">显示答案 <kbd>Space</kbd></button>
         <div id="answerPanel" class="answer-panel hidden">
@@ -416,7 +439,14 @@
     <form method="dialog" class="dialog-shell">
       <header class="dialog-head"><div><span id="dialogLevel" class="level-badge">N5</span><span id="dialogSource" class="soft-pill">内置词库</span></div><button class="icon-button" value="cancel" aria-label="关闭"><svg><use href="#i-close"></use></svg></button></header>
       <div class="dialog-word"><h2 id="dialogWord">勉強</h2><p id="dialogKana">べんきょう</p><button class="icon-button" type="button" id="dialogSpeakBtn" aria-label="朗读"><svg><use href="#i-volume"></use></svg></button></div>
-      <div class="dialog-meaning"><span>含义</span><p id="dialogMeaning">学习，用功</p></div>
+      <div class="dialog-meaning">
+        <div class="dialog-meaning-head"><span>含义</span><button class="text-button" id="dialogEditMeaningBtn" type="button">编辑含义</button></div>
+        <p id="dialogMeaning">学习，用功</p>
+        <div id="dialogMeaningEditor" class="dialog-meaning-editor hidden">
+          <textarea id="dialogMeaningInput" rows="3"></textarea>
+          <div><button class="button ghost small" id="dialogCancelMeaningBtn" type="button">取消</button><button class="button primary small" id="dialogSaveMeaningBtn" type="button">保存</button></div>
+        </div>
+      </div>
       <dl class="word-detail-grid"><div><dt>词性</dt><dd id="dialogPos">名词</dd></div><div><dt>音调</dt><dd id="dialogAccent">⓪</dd></div><div><dt>学习次数</dt><dd id="dialogSeen">0</dd></div><div><dt>下次复习</dt><dd id="dialogDue">未安排</dd></div></dl>
       <div id="dialogNoteWrap" class="dialog-note hidden"><span>备注</span><p id="dialogNote"></p></div>
       <footer class="dialog-actions"><button class="button danger-ghost" type="button" id="dialogDeleteBtn">删除/隐藏</button><div><button class="button secondary" type="button" id="dialogStarBtn">收藏</button><button class="button primary" type="button" id="dialogStudyBtn">立即学习</button></div></footer>

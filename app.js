@@ -2,12 +2,14 @@
   "use strict";
 
   const STORAGE = {
+    base: "jlpt-review.baseWords.v1",
     custom: "jlpt-review.customWords.v1",
     deleted: "jlpt-review.deletedBaseIds.v1",
     progress: "jlpt-review.progress.v1",
     history: "jlpt-review.history.v1",
     speech: "jlpt-review.speech.v1",
     settings: "jlpt-review.settings.v2",
+    cursors: "jlpt-review.studyCursors.v1",
   };
 
   const LEVELS = ["N5", "N4", "N3", "N2", "N1", "CUSTOM"];
@@ -19,6 +21,8 @@
     { key: "keita", label: "圭太（男声）", terms: ["keita", "圭太"] },
   ];
   const DAY = 24 * 60 * 60 * 1000;
+  const CHOICE_MODES = new Set(["wordToMeaning", "meaningToKana", "listening"]);
+  const KANA_TILE_POOL = [..."あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをんがぎぐげござじずぜぞだでどばびぶべぼぱぴぷぺぽー"];
 
   const DEFAULT_SETTINGS = {
     theme: "light",
@@ -31,8 +35,8 @@
     studyLevel: "all",
     studyScope: "today",
     studyCount: 20,
-    studyMode: "wordToMeaning",
-    studyOrder: "smart",
+    studyMode: "mixed",
+    studyOrder: "sequence",
   };
 
   const KANA_GROUPS = [
@@ -72,12 +76,14 @@
 
   const state = {
     baseWords: [],
+    savedBaseWords: [],
     customWords: [],
     deletedIds: new Set(),
     words: [],
     wordMap: new Map(),
     progress: {},
     history: [],
+    studyCursors: {},
     settings: { ...DEFAULT_SETTINGS },
     activeView: "dashboardView",
     library: { query: "", level: "all", status: "all", source: "all", kana: "all" },
@@ -116,10 +122,14 @@
   }
 
   function loadPersistentState() {
+    const savedBaseWords = loadJson(STORAGE.base, []);
+    state.savedBaseWords = Array.isArray(savedBaseWords) ? savedBaseWords : [];
     state.customWords = loadJson(STORAGE.custom, []);
     state.deletedIds = new Set(loadJson(STORAGE.deleted, []));
     state.progress = loadJson(STORAGE.progress, {});
     state.history = loadJson(STORAGE.history, []);
+    const cursors = loadJson(STORAGE.cursors, {});
+    state.studyCursors = cursors && typeof cursors === "object" && !Array.isArray(cursors) ? cursors : {};
     const storedSettings = loadJson(STORAGE.settings, {});
     const oldSpeech = loadJson(STORAGE.speech, {});
     state.settings = {
@@ -130,6 +140,7 @@
       speechRate: Number(storedSettings.speechRate ?? oldSpeech.rate ?? DEFAULT_SETTINGS.speechRate),
       speechPitch: Number(storedSettings.speechPitch ?? oldSpeech.pitch ?? DEFAULT_SETTINGS.speechPitch),
     };
+    if (!["sequence", "random"].includes(state.settings.studyOrder)) state.settings.studyOrder = "sequence";
   }
 
   async function loadWords() {
@@ -145,10 +156,28 @@
       }
     }
     const source = Array.isArray(raw) ? raw : [];
-    state.baseWords = source.map((item, index) => normalizeWord(item, index, false)).filter(Boolean);
+    const loadedBase = source.map((item, index) => normalizeWord(item, index, false)).filter(Boolean);
+    state.baseWords = mergeStoredBaseWords(loadedBase);
     if (!state.baseWords.length && !state.customWords.length) {
       toast("未检测到词汇数据，请在“词库管理”中导入词库。", "error", 5200);
     }
+  }
+
+  function mergeStoredBaseWords(loadedBase) {
+    const stored = state.savedBaseWords
+      .map((item, index) => normalizeWord(item, index, false))
+      .filter(Boolean);
+    if (!stored.length) return loadedBase;
+    const storedById = new Map(stored.map((word) => [word.id, word]));
+    const loadedIds = new Set(loadedBase.map((word) => word.id));
+    const merged = loadedBase.map((word) => {
+      const saved = storedById.get(word.id);
+      return saved ? { ...word, ...saved, _custom: false } : word;
+    });
+    stored.forEach((word) => {
+      if (!loadedIds.has(word.id)) merged.push({ ...word, _custom: false });
+    });
+    return merged;
   }
 
   function refreshWords() {
@@ -220,11 +249,12 @@
     $("pageTitle").textContent = title;
     $("pageSubtitle").textContent = subtitle;
     $("mobilePageTitle").textContent = title;
-    window.scrollTo({ top: 0, behavior: "auto" });
+    instantScrollTo(0);
     if (viewId !== "libraryView") $("kanaScrubber")?.classList.add("hidden");
     if (viewId === "libraryView") renderLibrary();
     if (viewId === "insightsView") renderInsights();
     if (viewId === "studyView") renderStudyConfig();
+    updateLibraryTopButton();
   }
 
   function getViewTitle(viewId) {
@@ -277,12 +307,15 @@
       renderLibrary();
     });
     $("starSelectedBtn").addEventListener("click", starSelectedWords);
-    $("studySelectedBtn").addEventListener("click", () => startSessionFromIds([...state.selectedIds]));
+    $("studySelectedBtn").addEventListener("click", () => startSessionFromIds([...state.selectedIds], { manual: true, includeMastered: true, scope: "manual" }));
     $("deleteSelectedBtn").addEventListener("click", deleteSelectedWords);
     $("studyFilteredBtn").addEventListener("click", () => {
       const limit = Math.max(1, Number($("studyCount").value || 20));
-      startSessionFromIds(state.filteredWords.slice(0, limit).map((word) => word.id));
+      const includeMastered = state.library.status === "mastered";
+      const words = includeMastered ? state.filteredWords : state.filteredWords.filter((word) => !isMastered(state.progress[word.id]));
+      startSessionFromIds(words.slice(0, limit).map((word) => word.id), { manual: true, includeMastered, scope: includeMastered ? "mastered" : "manual" });
     });
+    $("libraryTopBtn")?.addEventListener("click", scrollLibraryToTop);
     bindKanaScrubberEvents();
   }
 
@@ -298,6 +331,7 @@
       if (!state.kanaScrubber.items.length) return;
       event.preventDefault();
       state.kanaScrubber.dragging = true;
+      document.documentElement.classList.add("instant-scroll");
       track.setPointerCapture?.(event.pointerId);
       $("kanaScrubber")?.classList.add("dragging");
       seekFromPointer(event);
@@ -311,8 +345,10 @@
       if (!state.kanaScrubber.dragging) return;
       state.kanaScrubber.dragging = false;
       track.releasePointerCapture?.(event.pointerId);
+      document.documentElement.classList.remove("instant-scroll");
       $("kanaScrubber")?.classList.remove("dragging");
       scheduleKanaScrubberUpdate();
+      updateLibraryTopButton();
     };
     track.addEventListener("pointerup", finishDrag);
     track.addEventListener("pointercancel", finishDrag);
@@ -328,13 +364,16 @@
       if (event.key === "Home") seekKanaScrubber(0);
       if (event.key === "End") seekKanaScrubber(1);
     });
-    window.addEventListener("scroll", scheduleKanaScrubberUpdate, { passive: true });
+    window.addEventListener("scroll", () => {
+      scheduleKanaScrubberUpdate();
+      updateLibraryTopButton();
+    }, { passive: true });
     window.addEventListener("resize", scheduleKanaScrubberMeasure, { passive: true });
   }
 
   function bindStudyEvents() {
     $$('[data-preset]').forEach((button) => button.addEventListener("click", () => applyStudyPreset(button.dataset.preset)));
-    ["studyLevel", "studyScope", "studyCount", "studyMode", "studyOrder", "studyAutoSpeak"].forEach((id) => {
+    ["studyLevel", "studyScope", "studyCount", "studyOrder", "studyAutoSpeak"].forEach((id) => {
       $(id).addEventListener("change", () => {
         updateStudySettingsFromControls();
         renderStudyConfig();
@@ -344,6 +383,7 @@
     $("closeStudyBtn").addEventListener("click", requestCloseStudy);
     $("studySpeakBtn").addEventListener("click", () => speakWord(currentSessionWord()));
     $("studyStarBtn").addEventListener("click", () => toggleStar(currentSessionWord()?.id));
+    $("studyMasteredBtn").addEventListener("click", markCurrentWordMastered);
     $("showAnswerBtn").addEventListener("click", revealCurrentAnswer);
     $("studyOptions").addEventListener("click", (event) => {
       const button = event.target.closest("[data-choice-id]");
@@ -353,6 +393,18 @@
       event.preventDefault();
       answerTyping($("typingAnswer").value);
     });
+    $("studyPrompt").addEventListener("click", (event) => {
+      if (event.target.closest("[data-study-prompt-speak]")) speakWord(currentSessionWord());
+    });
+    $("kanaBuildChoices").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-kana-choice-index]");
+      if (button) selectKanaChoice(Number(button.dataset.kanaChoiceIndex));
+    });
+    $("kanaBuildSlots").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-kana-slot-index]");
+      if (button) removeKanaChoice(Number(button.dataset.kanaSlotIndex));
+    });
+    $("kanaBuildSubmit").addEventListener("click", answerKanaBuild);
     $("previousCardBtn").addEventListener("click", goToPreviousCard);
     $("nextCardBtn").addEventListener("click", goToNextCard);
     $("skipCardBtn").addEventListener("click", skipCurrentCard);
@@ -434,8 +486,11 @@
     });
     $("dialogStudyBtn").addEventListener("click", () => {
       $("wordDialog").close();
-      startSessionFromIds([state.dialogWordId]);
+      startSessionFromIds([state.dialogWordId], { manual: true, includeMastered: true, scope: "manual" });
     });
+    $("dialogEditMeaningBtn").addEventListener("click", showMeaningEditor);
+    $("dialogCancelMeaningBtn").addEventListener("click", hideMeaningEditor);
+    $("dialogSaveMeaningBtn").addEventListener("click", saveDialogMeaning);
     $("dialogDeleteBtn").addEventListener("click", () => {
       const id = state.dialogWordId;
       $("wordDialog").close();
@@ -487,11 +542,6 @@
           revealCurrentAnswer();
           return;
         }
-        if (["1", "2", "3", "4"].includes(event.key) && session && !card?.answered && session.config.mode !== "typing") {
-          event.preventDefault();
-          const option = session.options[Number(event.key) - 1];
-          if (option) answerChoice(option.id);
-        }
         return;
       }
       if (!typing && event.key === "/" && state.activeView === "libraryView") {
@@ -542,7 +592,10 @@
 
   function renderDuePreview() {
     const dueWords = state.words
-      .filter((word) => isDue(state.progress[word.id]))
+      .filter((word) => {
+        const p = state.progress[word.id] || {};
+        return isDue(p) && !isMastered(p);
+      })
       .sort((a, b) => (state.progress[a.id]?.nextReview || 0) - (state.progress[b.id]?.nextReview || 0))
       .slice(0, 5);
     const root = $("duePreview");
@@ -587,9 +640,10 @@
     state.words.forEach((word) => {
       const p = state.progress[word.id] || {};
       if (p.seen > 0) learned += 1; else unseen += 1;
-      if (isDue(p)) due += 1;
-      if (isMastered(p)) mastered += 1;
-      if (isDifficult(p)) difficult += 1;
+      const masteredWord = isMastered(p);
+      if (masteredWord) mastered += 1;
+      if (!masteredWord && isDue(p)) due += 1;
+      if (!masteredWord && isDifficult(p)) difficult += 1;
       correct += Number(p.correct || 0);
       wrong += Number(p.wrong || 0);
     });
@@ -663,10 +717,10 @@
       if (state.library.source !== "all" && word.source !== state.library.source) return false;
       if (state.library.kana !== "all" && word._kanaGroup !== state.library.kana) return false;
       const p = state.progress[word.id] || {};
-      if (state.library.status === "due" && !(p.nextReview && p.nextReview <= now)) return false;
+      if (state.library.status === "due" && (!(p.nextReview && p.nextReview <= now) || isMastered(p))) return false;
       if (state.library.status === "new" && (p.seen || 0) > 0) return false;
       if (state.library.status === "starred" && !p.starred) return false;
-      if (state.library.status === "difficult" && !isDifficult(p)) return false;
+      if (state.library.status === "difficult" && (!isDifficult(p) || isMastered(p))) return false;
       if (state.library.status === "mastered" && !isMastered(p)) return false;
       return !query || word._search.includes(query) || word._romaji.includes(query);
     }).sort((a, b) => {
@@ -819,7 +873,32 @@
     const start = rect.top + window.scrollY;
     const travel = Math.max(0, stream.scrollHeight - Math.min(window.innerHeight * 0.62, 560));
     const offset = window.innerWidth <= 900 ? 82 : 20;
-    window.scrollTo({ top: Math.max(0, start + safeRatio * travel - offset), behavior: "auto" });
+    window.scrollTo(0, Math.max(0, start + safeRatio * travel - offset));
+  }
+
+  function scrollLibraryToTop() {
+    const view = $("libraryView");
+    const top = view ? view.getBoundingClientRect().top + window.scrollY : 0;
+    instantScrollTo(top);
+    window.requestAnimationFrame(updateLibraryTopButton);
+  }
+
+  function updateLibraryTopButton() {
+    const button = $("libraryTopBtn");
+    if (!button) return;
+    const view = $("libraryView");
+    const top = view ? view.getBoundingClientRect().top + window.scrollY : 0;
+    const visible = state.activeView === "libraryView" && window.scrollY > top + Math.min(360, window.innerHeight * 0.35);
+    button.classList.toggle("hidden", !visible);
+  }
+
+  function instantScrollTo(top) {
+    const root = document.documentElement;
+    root.classList.add("instant-scroll");
+    window.scrollTo(0, Math.max(0, top));
+    window.requestAnimationFrame(() => {
+      if (!state.kanaScrubber.dragging) root.classList.remove("instant-scroll");
+    });
   }
 
   function updateKanaScrubberUi(index) {
@@ -866,12 +945,7 @@
     const config = readStudyConfig();
     const pool = getStudyPool(config);
     const count = Math.min(config.count, pool.length);
-    const modeLabel = {
-      wordToMeaning: "看单词选含义",
-      meaningToWord: "看含义选单词",
-      kanaToWord: "看假名选单词",
-      typing: "输入写法",
-    }[config.mode] || "选择题";
+    const modeLabel = "混合题型";
     const scopeLabel = {
       today: "今日计划",
       due: "到期复习",
@@ -892,7 +966,7 @@
     $("studyPoolCount").textContent = pool.length.toLocaleString();
     $("studyPreviewTitle").textContent = scopeLabel;
     $("studyPreviewText").textContent = scopeText;
-    $("studyEstimate").textContent = `约 ${Math.max(1, Math.ceil(count * (config.mode === "typing" ? 24 : 15) / 60))} 分钟`;
+    $("studyEstimate").textContent = `约 ${Math.max(1, Math.ceil(count * 18 / 60))} 分钟`;
     $("studyModeLabel").textContent = modeLabel;
     $("startStudyBtn").disabled = pool.length === 0;
     $("startStudyBtn").innerHTML = `<svg><use href="#i-spark"></use></svg>${pool.length ? `开始 ${count || config.count} 题` : "暂无可用词汇"}`;
@@ -906,7 +980,6 @@
     $("studyLevel").value = state.settings.studyLevel;
     $("studyScope").value = state.settings.studyScope;
     $("studyCount").value = String(state.settings.studyCount);
-    $("studyMode").value = state.settings.studyMode;
     $("studyOrder").value = state.settings.studyOrder;
   }
 
@@ -914,7 +987,7 @@
     state.settings.studyLevel = $("studyLevel").value;
     state.settings.studyScope = $("studyScope").value;
     state.settings.studyCount = Number($("studyCount").value);
-    state.settings.studyMode = $("studyMode").value;
+    state.settings.studyMode = "mixed";
     state.settings.studyOrder = $("studyOrder").value;
     saveSettings();
   }
@@ -925,7 +998,7 @@
       level: $("studyLevel").value,
       scope: $("studyScope").value,
       count: Number($("studyCount").value || 20),
-      mode: $("studyMode").value,
+      mode: "mixed",
       order: $("studyOrder").value,
       autoSpeak: autoSpeakValue === "inherit" ? state.settings.autoSpeak : autoSpeakValue === "on",
     };
@@ -943,7 +1016,11 @@
 
   function getStudyPool(config) {
     const now = Date.now();
-    const levelPool = state.words.filter((word) => config.level === "all" || word.level === config.level);
+    const includeMastered = Boolean(config.includeMastered);
+    const levelPool = state.words.filter((word) => {
+      if (config.level !== "all" && word.level !== config.level) return false;
+      return includeMastered || !isMastered(state.progress[word.id]);
+    });
     let pool = [...levelPool];
     if (config.scope === "today") {
       const due = levelPool.filter((word) => {
@@ -964,24 +1041,50 @@
     if (config.scope === "difficult") pool = pool.filter((word) => isDifficult(state.progress[word.id]));
     if (config.scope === "starred") pool = pool.filter((word) => state.progress[word.id]?.starred);
     if (config.order === "random") shuffle(pool);
-    if (config.order === "level") pool.sort((a, b) => (LEVEL_ORDER[a.level] || 99) - (LEVEL_ORDER[b.level] || 99) || compareKana(a, b));
-    if (config.order === "smart") {
-      pool.sort((a, b) => {
-        const pa = state.progress[a.id] || {};
-        const pb = state.progress[b.id] || {};
-        const dueA = pa.nextReview || Infinity;
-        const dueB = pb.nextReview || Infinity;
-        if (dueA !== dueB) {
-          if (Number.isFinite(dueA) && !Number.isFinite(dueB)) return -1;
-          if (!Number.isFinite(dueA) && Number.isFinite(dueB)) return 1;
-          if (Number.isFinite(dueA) && Number.isFinite(dueB)) return dueA - dueB;
-        }
-        const difficultyDiff = difficultyScore(pb) - difficultyScore(pa);
-        if (difficultyDiff !== 0) return difficultyDiff;
-        return (pa.seen || 0) - (pb.seen || 0) || compareKana(a, b);
-      });
-    }
+    if (config.order !== "random") pool.sort(compareStudySequence);
+    if (config.order === "sequence" && !config.manual) pool = rotatePoolFromSequenceCursor(pool, config);
     return pool;
+  }
+
+  function sequenceCursorKey(config = {}) {
+    return `${config.level || "all"}::${config.scope || "all"}`;
+  }
+
+  function rotatePoolFromSequenceCursor(pool, config) {
+    if (!pool.length) return pool;
+    const cursorId = state.studyCursors[sequenceCursorKey(config)];
+    const cursorIndex = pool.findIndex((word) => word.id === cursorId);
+    if (cursorIndex < 0) {
+      const cursorWord = state.wordMap.get(cursorId);
+      if (!cursorWord) return pool;
+      const nextIndex = pool.findIndex((word) => compareStudySequence(word, cursorWord) > 0);
+      if (nextIndex <= 0) return pool;
+      return [...pool.slice(nextIndex), ...pool.slice(0, nextIndex)];
+    }
+    if (cursorIndex === 0) return pool;
+    return [...pool.slice(cursorIndex), ...pool.slice(0, cursorIndex)];
+  }
+
+  function rememberSequenceCursor(config, id) {
+    if (!config || config.manual || config.order !== "sequence" || !id) return;
+    const key = config.sequenceKey || sequenceCursorKey(config);
+    state.studyCursors[key] = id;
+    saveJson(STORAGE.cursors, state.studyCursors);
+  }
+
+  function rememberFollowingSequenceCursor(session, id) {
+    if (!session?.config || session.config.manual || session.config.order !== "sequence" || !id) return;
+    const ids = session.config.sequencePoolIds?.length ? session.config.sequencePoolIds : session.ids;
+    if (!ids?.length) return;
+    const index = ids.indexOf(id);
+    const nextId = ids[index >= 0 ? (index + 1) % ids.length : 0];
+    rememberSequenceCursor(session.config, nextId);
+  }
+
+  function syncSequenceCursorForCard(session, card) {
+    if (!session?.config || session.config.manual || session.config.order !== "sequence" || !card?.id) return;
+    if (card.answered) rememberFollowingSequenceCursor(session, card.id);
+    else rememberSequenceCursor(session.config, card.id);
   }
 
   function startConfiguredSession() {
@@ -992,7 +1095,7 @@
       return;
     }
     const ids = pool.slice(0, config.count).map((word) => word.id);
-    startSessionFromIds(ids, config);
+    startSessionFromIds(ids, { ...config, sequencePoolIds: pool.map((word) => word.id), sequenceKey: sequenceCursorKey(config) });
   }
 
   function startRecommendedSession(kind) {
@@ -1000,8 +1103,8 @@
       level: "all",
       scope: kind === "quick" ? "all" : "due",
       count: kind === "quick" ? 10 : state.settings.studyCount,
-      mode: state.settings.studyMode,
-      order: "smart",
+      mode: "mixed",
+      order: kind === "quick" ? "random" : "sequence",
       autoSpeak: state.settings.autoSpeak,
     };
     let pool = getStudyPool(baseConfig);
@@ -1016,7 +1119,7 @@
       return;
     }
     if (kind === "quick") shuffle(pool);
-    startSessionFromIds(pool.slice(0, baseConfig.count).map((word) => word.id), baseConfig);
+    startSessionFromIds(pool.slice(0, baseConfig.count).map((word) => word.id), { ...baseConfig, sequencePoolIds: pool.map((word) => word.id), sequenceKey: sequenceCursorKey(baseConfig) });
   }
 
   function startSessionFromIds(ids, configOverride = null) {
@@ -1026,12 +1129,13 @@
       return;
     }
     const controlConfig = document.getElementById("studyLevel") ? readStudyConfig() : {
-      level: "all", scope: "all", count: uniqueIds.length, mode: state.settings.studyMode, order: state.settings.studyOrder, autoSpeak: state.settings.autoSpeak,
+      level: "all", scope: "all", count: uniqueIds.length, mode: "mixed", order: state.settings.studyOrder, autoSpeak: state.settings.autoSpeak,
     };
     const config = { ...controlConfig, ...(configOverride || {}), count: uniqueIds.length };
+    if (config.order === "sequence" && !config.manual && !config.sequenceKey) config.sequenceKey = sequenceCursorKey(config);
     state.session = {
       ids: uniqueIds,
-      cards: uniqueIds.map((id) => ({ id, answered: false, correct: false, selectedId: null, peek: false, optionIds: null, committed: false, rating: null })),
+      cards: buildSessionCards(uniqueIds, config),
       index: 0,
       results: [],
       startTime: Date.now(),
@@ -1043,6 +1147,63 @@
     };
     openStudyOverlay();
     renderSessionCard();
+  }
+
+  function buildSessionCards(ids, config) {
+    const deck = buildQuestionModeDeck(ids.length);
+    return ids.map((id, index) => {
+      const word = state.wordMap.get(id);
+      const preferred = config.mode === "mixed" ? deck[index] : config.mode;
+      return {
+        id,
+        mode: chooseQuestionMode(word, preferred),
+        answered: false,
+        correct: false,
+        selectedId: null,
+        peek: false,
+        optionIds: null,
+        kanaQuestion: null,
+        selectedKanaIndices: [],
+        committed: false,
+        rating: null,
+      };
+    });
+  }
+
+  function buildQuestionModeDeck(count) {
+    const majorCount = Math.round(count * 0.7);
+    const minorCount = Math.max(0, count - majorCount);
+    const deck = [
+      ...Array(Math.ceil(majorCount / 2)).fill("wordToMeaning"),
+      ...Array(Math.floor(majorCount / 2)).fill("meaningToKana"),
+      ...Array(Math.ceil(minorCount / 2)).fill("kanaBuild"),
+      ...Array(Math.floor(minorCount / 2)).fill("listening"),
+    ];
+    while (deck.length < count) deck.push(Math.random() < 0.5 ? "wordToMeaning" : "meaningToKana");
+    shuffle(deck);
+    return deck.slice(0, count);
+  }
+
+  function chooseQuestionMode(word, preferred) {
+    const valid = validQuestionModesForWord(word);
+    if (valid.includes(preferred)) return preferred;
+    const fallbacks = {
+      kanaBuild: ["listening", "meaningToKana", "wordToMeaning"],
+      listening: ["kanaBuild", "meaningToKana", "wordToMeaning"],
+      meaningToKana: ["wordToMeaning"],
+      wordToMeaning: ["meaningToKana", "listening", "kanaBuild"],
+    }[preferred] || ["wordToMeaning"];
+    return fallbacks.find((mode) => valid.includes(mode)) || valid[0] || "wordToMeaning";
+  }
+
+  function validQuestionModesForWord(word) {
+    const modes = ["wordToMeaning"];
+    const kana = cleanKanaAnswer(word);
+    if (kana && isCoreVocabulary(word)) {
+      modes.push("meaningToKana", "listening");
+      if (kana.length >= 2 && kana.length <= 7) modes.push("kanaBuild");
+    }
+    return modes;
   }
 
   function openStudyOverlay() {
@@ -1103,76 +1264,113 @@
       finishSession();
       return;
     }
-    if (!card.optionIds && session.config.mode !== "typing") {
-      card.optionIds = buildAnswerOptions(word, session.config.mode).map((option) => option.id);
+    const mode = card.mode || "wordToMeaning";
+    if (!card.optionIds && CHOICE_MODES.has(mode)) {
+      card.optionIds = buildAnswerOptions(word, mode).map((option) => option.id);
+    }
+    if (mode === "kanaBuild" && !card.kanaQuestion) {
+      card.kanaQuestion = buildKanaQuestion(word);
     }
     session.answered = card.answered;
     session.correct = card.correct;
     session.selectedId = card.selectedId;
     session.options = (card.optionIds || []).map((id) => state.wordMap.get(id)).filter(Boolean);
     updateSessionHeader();
+    syncSequenceCursorForCard(session, card);
     $("studyCardLevel").textContent = LEVEL_LABELS[word.level] || word.level;
     $("studyStarBtn").classList.toggle("starred", Boolean(state.progress[word.id]?.starred));
+    $("studyMasteredBtn").disabled = card.answered;
     $("answerPanel").classList.add("hidden");
     $("showAnswerBtn").classList.toggle("hidden", card.answered);
-    $("typingAnswerForm").classList.toggle("hidden", session.config.mode !== "typing");
-    $("studyOptions").classList.toggle("hidden", session.config.mode === "typing");
-    $("typingAnswer").value = session.config.mode === "typing" ? String(card.selectedId || "") : "";
+    $("typingAnswerForm").classList.toggle("hidden", mode !== "typing");
+    $("studyOptions").classList.toggle("hidden", !CHOICE_MODES.has(mode));
+    $("kanaBuildAnswer").classList.toggle("hidden", mode !== "kanaBuild");
+    $("typingAnswer").value = mode === "typing" ? String(card.selectedId || "") : "";
     $("typingAnswer").disabled = card.answered;
     const typingSubmit = $("typingAnswerForm").querySelector('button[type="submit"]');
     if (typingSubmit) typingSubmit.disabled = card.answered;
-    configurePrompt(word, session.config.mode);
-    renderStudyOptions(word, session.config.mode);
+    configurePrompt(word, mode);
+    renderStudyOptions(word, mode);
+    renderKanaBuildAnswer(word, card, mode);
     if (card.answered) {
       restoreStudyAnswerVisuals(word, card);
-      showAnswerPanel(word, card.correct, card.peek);
+      showAnswerPanel(word, card.correct, card.peek, card.mastered);
     } else {
-      if (session.config.mode === "typing") window.setTimeout(() => $("typingAnswer").focus(), 80);
-      const canAutoSpeak = session.config.autoSpeak && ["wordToMeaning", "kanaToWord"].includes(session.config.mode);
-      if (canAutoSpeak) window.setTimeout(() => speakWord(word), 120);
+      if (mode === "typing") window.setTimeout(() => $("typingAnswer").focus(), 80);
     }
+    if (session.config.autoSpeak) window.setTimeout(() => speakWord(word), mode === "listening" ? 80 : 120);
   }
 
   function configurePrompt(word, mode) {
     if (mode === "wordToMeaning") {
-      $("studyPromptLabel").textContent = "选择正确含义";
+      $("studyPromptLabel").textContent = "选择中文含义";
       $("studyPrompt").textContent = word.word;
       $("studyPromptSub").textContent = [word.kana, word.pos, word.accent].filter(Boolean).join(" · ");
       return;
     }
-    if (mode === "meaningToWord") {
-      $("studyPromptLabel").textContent = "选择对应单词";
+    if (mode === "meaningToKana") {
+      $("studyPromptLabel").textContent = "看中文选假名";
       $("studyPrompt").textContent = word.meaning;
       $("studyPromptSub").textContent = [LEVEL_LABELS[word.level], word.pos].filter(Boolean).join(" · ");
       return;
     }
-    if (mode === "kanaToWord") {
-      $("studyPromptLabel").textContent = "选择正确写法";
-      $("studyPrompt").textContent = word.kana || word.word;
+    if (mode === "listening") {
+      $("studyPromptLabel").textContent = "听音辨义";
+      $("studyPrompt").innerHTML = `<button class="audio-prompt-button" type="button" data-study-prompt-speak aria-label="重听"><svg><use href="#i-volume"></use></svg></button>`;
       $("studyPromptSub").textContent = [LEVEL_LABELS[word.level], word.pos].filter(Boolean).join(" · ");
       return;
     }
-    $("studyPromptLabel").textContent = "输入对应日语写法";
-    $("studyPrompt").textContent = word.meaning;
-    $("studyPromptSub").textContent = [LEVEL_LABELS[word.level], word.pos].filter(Boolean).join(" · ");
+    if (mode === "kanaBuild") {
+      $("studyPromptLabel").textContent = "选择单词假名";
+      $("studyPrompt").textContent = word.word;
+      $("studyPromptSub").textContent = [word.meaning, word.pos].filter(Boolean).join(" · ");
+      return;
+    }
+    $("studyPromptLabel").textContent = "选择中文含义";
+    $("studyPrompt").textContent = word.word;
+    $("studyPromptSub").textContent = [word.kana, word.pos, word.accent].filter(Boolean).join(" · ");
   }
 
   function buildAnswerOptions(word, mode) {
-    if (mode === "typing") return [];
-    let candidates = state.words.filter((candidate) => candidate.id !== word.id && candidate.level === word.level);
+    if (!CHOICE_MODES.has(mode)) return [];
+    const usedAnswers = new Set([answerOptionKey(word, mode)]);
+    let candidates = state.words.filter((candidate) => {
+      if (candidate.id === word.id || candidate.level !== word.level) return false;
+      if (!isChoiceCandidate(candidate, mode)) return false;
+      const key = answerOptionKey(candidate, mode);
+      if (!key || usedAnswers.has(key)) return false;
+      return true;
+    });
     const samePos = candidates.filter((candidate) => candidate.pos && word.pos && candidate.pos === word.pos);
     const chosen = [];
     shuffle(samePos);
-    samePos.slice(0, 2).forEach((candidate) => chosen.push(candidate));
+    samePos.slice(0, 2).forEach((candidate) => {
+      chosen.push(candidate);
+      usedAnswers.add(answerOptionKey(candidate, mode));
+    });
     shuffle(candidates);
     for (const candidate of candidates) {
       if (chosen.length >= 3) break;
-      if (!chosen.some((item) => item.id === candidate.id)) chosen.push(candidate);
+      const key = answerOptionKey(candidate, mode);
+      if (!chosen.some((item) => item.id === candidate.id) && !usedAnswers.has(key)) {
+        chosen.push(candidate);
+        usedAnswers.add(key);
+      }
     }
     if (chosen.length < 3) {
-      const all = state.words.filter((candidate) => candidate.id !== word.id && !chosen.some((item) => item.id === candidate.id));
+      const all = state.words.filter((candidate) => {
+        if (candidate.id === word.id || chosen.some((item) => item.id === candidate.id)) return false;
+        if (!isChoiceCandidate(candidate, mode)) return false;
+        const key = answerOptionKey(candidate, mode);
+        if (!key || usedAnswers.has(key)) return false;
+        return true;
+      });
       shuffle(all);
-      chosen.push(...all.slice(0, 3 - chosen.length));
+      for (const candidate of all) {
+        if (chosen.length >= 3) break;
+        chosen.push(candidate);
+        usedAnswers.add(answerOptionKey(candidate, mode));
+      }
     }
     const options = [word, ...chosen.slice(0, 3)];
     shuffle(options);
@@ -1187,14 +1385,114 @@
     }
     root.innerHTML = state.session.options.map((option, index) => {
       let text = option.meaning;
-      if (mode === "meaningToWord") text = `${option.word}${option.kana ? `　${option.kana}` : ""}`;
-      if (mode === "kanaToWord") text = option.word;
-      return `<button class="study-option" data-choice-id="${escapeAttr(option.id)}"><span>${escapeHtml(text)}</span><kbd class="option-number">${index + 1}</kbd></button>`;
+      if (mode === "meaningToKana") text = cleanKanaAnswer(option) || option.kana || option.word;
+      if (mode === "listening") text = option.meaning;
+      return `<button class="study-option" data-choice-id="${escapeAttr(option.id)}"><span>${escapeHtml(text)}</span></button>`;
     }).join("");
   }
 
+  function buildKanaQuestion(word) {
+    const answer = cleanKanaAnswer(word);
+    const answerChars = [...answer];
+    const choices = [...answerChars];
+    const targetSize = 15;
+    const localPool = state.words
+      .filter((item) => item.id !== word.id && item.level === word.level)
+      .flatMap((item) => [...cleanKanaAnswer(item)])
+      .filter(Boolean);
+    while (choices.length < targetSize) {
+      const pool = localPool.length ? localPool : KANA_TILE_POOL;
+      choices.push(pool[Math.floor(Math.random() * pool.length)] || KANA_TILE_POOL[Math.floor(Math.random() * KANA_TILE_POOL.length)]);
+    }
+    shuffle(choices);
+    return { answer, answerChars, choices };
+  }
+
+  function renderKanaBuildAnswer(word, card, mode) {
+    const root = $("kanaBuildAnswer");
+    if (mode !== "kanaBuild" || !card) {
+      root.classList.add("hidden");
+      $("kanaBuildSlots").innerHTML = "";
+      $("kanaBuildChoices").innerHTML = "";
+      return;
+    }
+    root.classList.remove("hidden");
+    if (!card.kanaQuestion) card.kanaQuestion = buildKanaQuestion(word);
+    const question = card.kanaQuestion;
+    const selected = card.selectedKanaIndices || [];
+    const selectedSet = new Set(selected);
+    const locked = card.answered || card.peek;
+    const slotClass = locked ? (card.correct || card.peek ? " correct" : " wrong") : "";
+    $("kanaBuildSlots").className = `kana-build-slots${slotClass}`;
+    $("kanaBuildSlots").innerHTML = question.answerChars.map((_, index) => {
+      const choiceIndex = selected[index];
+      const value = Number.isInteger(choiceIndex) ? question.choices[choiceIndex] : "";
+      const filled = value ? " filled" : "";
+      const label = value ? ` aria-label="移除 ${escapeAttr(value)}"` : "";
+      return `<button class="kana-build-slot${filled}" type="button" data-kana-slot-index="${index}"${label} ${locked || !value ? "disabled" : ""}>${escapeHtml(value || "")}</button>`;
+    }).join("");
+    $("kanaBuildChoices").innerHTML = question.choices.map((char, index) => {
+      const selectedClass = selectedSet.has(index) ? " selected" : "";
+      return `<button class="kana-choice${selectedClass}" type="button" data-kana-choice-index="${index}" ${locked || selectedSet.has(index) ? "disabled" : ""}>${escapeHtml(char)}</button>`;
+    }).join("");
+    $("kanaBuildSubmit").disabled = locked || selected.length !== question.answerChars.length;
+  }
+
+  function selectKanaChoice(choiceIndex) {
+    const card = currentSessionCard();
+    const word = currentSessionWord();
+    if (!card || !word || card.answered || card.mode !== "kanaBuild" || !card.kanaQuestion) return;
+    if (!Number.isInteger(choiceIndex) || choiceIndex < 0 || choiceIndex >= card.kanaQuestion.choices.length) return;
+    card.selectedKanaIndices = card.selectedKanaIndices || [];
+    if (card.selectedKanaIndices.includes(choiceIndex) || card.selectedKanaIndices.length >= card.kanaQuestion.answerChars.length) return;
+    card.selectedKanaIndices.push(choiceIndex);
+    renderKanaBuildAnswer(word, card, card.mode);
+  }
+
+  function removeKanaChoice(slotIndex) {
+    const card = currentSessionCard();
+    const word = currentSessionWord();
+    if (!card || !word || card.answered || card.mode !== "kanaBuild") return;
+    card.selectedKanaIndices = card.selectedKanaIndices || [];
+    if (slotIndex < 0 || slotIndex >= card.selectedKanaIndices.length) return;
+    card.selectedKanaIndices.splice(slotIndex, 1);
+    renderKanaBuildAnswer(word, card, card.mode);
+  }
+
+  function answerKanaBuild() {
+    const card = currentSessionCard();
+    const word = currentSessionWord();
+    if (!card || !word || card.answered || card.mode !== "kanaBuild" || !card.kanaQuestion) return;
+    const selected = card.selectedKanaIndices || [];
+    if (selected.length !== card.kanaQuestion.answerChars.length) {
+      toast("请选择完整假名。", "error");
+      return;
+    }
+    const answer = selected.map((index) => card.kanaQuestion.choices[index]).join("");
+    card.selectedId = answer;
+    card.correct = answer === card.kanaQuestion.answer;
+    card.peek = false;
+    commitSessionAnswer(card, word);
+    renderKanaBuildAnswer(word, card, card.mode);
+  }
+
+  function fillKanaAnswerSelection(card) {
+    if (!card?.kanaQuestion) return;
+    const used = new Set();
+    card.selectedKanaIndices = card.kanaQuestion.answerChars.map((char) => {
+      const index = card.kanaQuestion.choices.findIndex((choice, choiceIndex) => choice === char && !used.has(choiceIndex));
+      if (index >= 0) used.add(index);
+      return index;
+    }).filter((index) => index >= 0);
+  }
+
   function restoreStudyAnswerVisuals(word, card) {
-    if (state.session.config.mode === "typing") {
+    const mode = card?.mode || state.session?.config?.mode || "wordToMeaning";
+    if (mode === "kanaBuild") {
+      renderKanaBuildAnswer(word, card, mode);
+      return;
+    }
+    if (mode === "typing") {
       $("typingAnswer").disabled = true;
       return;
     }
@@ -1236,6 +1534,33 @@
     commitSessionAnswer(card, word);
   }
 
+  function markCurrentWordMastered() {
+    const session = state.session;
+    const card = currentSessionCard();
+    const word = currentSessionWord();
+    if (!session || !card || !word || card.answered) return;
+    if (card.mode === "kanaBuild") {
+      if (!card.kanaQuestion) card.kanaQuestion = buildKanaQuestion(word);
+      fillKanaAnswerSelection(card);
+    }
+    card.selectedId = word.id;
+    card.correct = true;
+    card.peek = false;
+    card.mastered = true;
+    card.answered = true;
+    card.rating = "mastered";
+    card.committed = true;
+    session.answered = true;
+    session.correct = true;
+    session.selectedId = card.selectedId;
+    updateProgressForMastery(word);
+    session.results.push({ index: session.index, id: word.id, correct: true, rating: "mastered" });
+    rememberFollowingSequenceCursor(session, word.id);
+    updateSessionHeader();
+    restoreStudyAnswerVisuals(word, card);
+    showAnswerPanel(word, true, false, true);
+  }
+
   function revealCurrentAnswer() {
     const session = state.session;
     const card = currentSessionCard();
@@ -1244,6 +1569,10 @@
     card.selectedId = null;
     card.correct = false;
     card.peek = true;
+    if (card.mode === "kanaBuild") {
+      if (!card.kanaQuestion) card.kanaQuestion = buildKanaQuestion(word);
+      fillKanaAnswerSelection(card);
+    }
     restoreStudyAnswerVisuals(word, card);
     $("typingAnswer").disabled = true;
     commitSessionAnswer(card, word);
@@ -1261,19 +1590,20 @@
       updateProgressForReview(word, card.correct, card.rating);
       card.committed = true;
       session.results.push({ index: session.index, id: word.id, correct: card.correct, rating: card.rating });
+      rememberFollowingSequenceCursor(session, word.id);
     }
     updateSessionHeader();
-    showAnswerPanel(word, card.correct, card.peek);
+    showAnswerPanel(word, card.correct, card.peek, card.mastered);
   }
 
-  function showAnswerPanel(word, correct, peek) {
+  function showAnswerPanel(word, correct, peek, mastered = false) {
     const session = state.session;
     $("showAnswerBtn").classList.add("hidden");
     $("answerPanel").classList.remove("hidden");
     const status = $("answerPanel").querySelector(".answer-status");
     status.classList.toggle("wrong", !correct);
     $("answerStatusIcon").innerHTML = `<svg><use href="#${correct ? "i-check" : "i-close"}"></use></svg>`;
-    $("answerStatusTitle").textContent = correct ? "回答正确" : peek ? "已显示答案" : "还差一点";
+    $("answerStatusTitle").textContent = mastered ? "已标记掌握" : correct ? "回答正确" : peek ? "已显示答案" : "还差一点";
     $("answerStatusText").textContent = [word.word, word.kana, word.accent, word.meaning].filter(Boolean).join(" · ");
     $("previousCardBtn").disabled = !session || session.index === 0;
     const isLast = session && session.index >= session.cards.length - 1;
@@ -1330,6 +1660,27 @@
     state.progress[word.id] = p;
     saveJson(STORAGE.progress, state.progress);
     addHistory({ id: word.id, word: word.word, level: word.level, correct, rating, time: now });
+  }
+
+  function updateProgressForMastery(word) {
+    const now = Date.now();
+    const old = state.progress[word.id] || { seen: 0, correct: 0, wrong: 0, streak: 0, interval: 0, ease: 2.3, reps: 0, lapses: 0 };
+    const p = {
+      ...old,
+      seen: Math.max(3, Number(old.seen || 0) + 1),
+      correct: Number(old.correct || 0) + 1,
+      wrong: Number(old.wrong || 0),
+      streak: Math.max(3, Number(old.streak || 0) + 1),
+      interval: Math.max(30, Number(old.interval || 0)),
+      ease: Math.max(2.5, Number(old.ease || 2.3)),
+      reps: Math.max(3, Number(old.reps || 0) + 1),
+      lastSeen: now,
+      nextReview: now + 30 * DAY,
+      lastRating: "mastered",
+    };
+    state.progress[word.id] = p;
+    saveJson(STORAGE.progress, state.progress);
+    addHistory({ id: word.id, word: word.word, level: word.level, correct: true, rating: "mastered", time: now });
   }
 
   function goToPreviousCard() {
@@ -1435,7 +1786,7 @@
       return;
     }
     state.customWords.push(item);
-    saveJson(STORAGE.custom, state.customWords);
+    saveJson(STORAGE.custom, state.customWords.map(cleanWordForExport));
     event.target.reset();
     $("addLevel").value = "N5";
     $("addSource").value = "我的词库";
@@ -1517,7 +1868,7 @@
       state.customWords.push(candidate);
       imported += 1;
     });
-    saveJson(STORAGE.custom, state.customWords);
+    saveJson(STORAGE.custom, state.customWords.map(cleanWordForExport));
     refreshWords();
     renderAll();
     return { imported, skipped, invalid };
@@ -1526,9 +1877,10 @@
   function exportBackup() {
     const payload = {
       app: "Kotoba Flow",
-      version: 2,
+      version: 3,
       exportedAt: new Date().toISOString(),
-      customWords: state.customWords,
+      baseWords: state.baseWords.map(cleanWordForExport),
+      customWords: state.customWords.map(cleanWordForExport),
       deletedBaseIds: [...state.deletedIds],
       progress: state.progress,
       history: state.history,
@@ -1542,6 +1894,16 @@
     };
     downloadJson(payload, `kotoba-flow-backup-${dateKey(new Date())}.json`);
     toast("完整备份已导出。", "success");
+  }
+
+  function cleanWordForExport(word) {
+    if (!word || typeof word !== "object") return word;
+    const { _search, _romaji, _kanaGroup, _custom, ...clean } = word;
+    return clean;
+  }
+
+  function saveBaseWords() {
+    saveJson(STORAGE.base, state.baseWords.map(cleanWordForExport));
   }
 
   async function importBackupFile(event) {
@@ -1561,7 +1923,9 @@
       toast("备份结构无法识别。", "error");
       return;
     }
+    const importedBaseWords = data.baseWords || data.base;
     const looksLikeDirectProgress = !data.progress && Object.values(data).some((value) => value && typeof value === "object" && ("seen" in value || "correct" in value));
+    if (importedBaseWords) saveJson(STORAGE.base, importedBaseWords);
     if (data.customWords || data.custom) saveJson(STORAGE.custom, data.customWords || data.custom);
     if (data.deletedBaseIds || data.deleted) saveJson(STORAGE.deleted, data.deletedBaseIds || data.deleted);
     if (data.progress) saveJson(STORAGE.progress, data.progress);
@@ -1570,6 +1934,11 @@
     if (data.settings) saveJson(STORAGE.settings, { ...state.settings, ...data.settings });
     if (data.speech && !data.settings) saveJson(STORAGE.speech, data.speech);
     loadPersistentState();
+    if (importedBaseWords) {
+      state.baseWords = state.savedBaseWords.map((item, index) => normalizeWord(item, index, false)).filter(Boolean);
+    } else {
+      state.baseWords = mergeStoredBaseWords(state.baseWords);
+    }
     applyTheme();
     refreshWords();
     syncControlsFromSettings();
@@ -1578,7 +1947,7 @@
   }
 
   function exportLibrary() {
-    const payload = state.words.map(({ _search, _romaji, _kanaGroup, _custom, ...word }) => word);
+    const payload = state.words.map(cleanWordForExport);
     downloadJson(payload, `jlpt-vocabulary-${dateKey(new Date())}.json`);
     toast(`已导出 ${payload.length.toLocaleString()} 个词。`, "success");
   }
@@ -1631,7 +2000,7 @@
       if (word && !word._custom) state.deletedIds.add(id);
       state.selectedIds.delete(id);
     });
-    saveJson(STORAGE.custom, state.customWords);
+    saveJson(STORAGE.custom, state.customWords.map(cleanWordForExport));
     saveJson(STORAGE.deleted, [...state.deletedIds]);
     refreshWords();
     renderAll();
@@ -1694,7 +2063,10 @@
 
   function renderDifficultWords() {
     const words = state.words
-      .filter((word) => isDifficult(state.progress[word.id]))
+      .filter((word) => {
+        const p = state.progress[word.id] || {};
+        return isDifficult(p) && !isMastered(p);
+      })
       .sort((a, b) => difficultyScore(state.progress[b.id]) - difficultyScore(state.progress[a.id]))
       .slice(0, 8);
     const root = $("difficultList");
@@ -1732,7 +2104,6 @@
     $("studyLevel").value = state.settings.studyLevel;
     $("studyScope").value = state.settings.studyScope;
     $("studyCount").value = String(state.settings.studyCount);
-    $("studyMode").value = state.settings.studyMode;
     $("studyOrder").value = state.settings.studyOrder;
     renderSettings();
   }
@@ -1805,6 +2176,8 @@
     $("dialogWord").textContent = word.word;
     $("dialogKana").textContent = [word.kana, word.accent].filter(Boolean).join(" · ") || "暂无假名";
     $("dialogMeaning").textContent = word.meaning;
+    $("dialogMeaningInput").value = word.meaning;
+    hideMeaningEditor();
     $("dialogPos").textContent = word.pos || "—";
     $("dialogAccent").textContent = word.accent || "—";
     $("dialogSeen").textContent = `${p.seen || 0} 次`;
@@ -1814,6 +2187,42 @@
     $("dialogStarBtn").textContent = p.starred ? "取消收藏" : "收藏";
     $("dialogDeleteBtn").textContent = word._custom ? "删除词条" : "隐藏词条";
     if (!refreshOnly && !$("wordDialog").open) $("wordDialog").showModal();
+  }
+
+  function showMeaningEditor() {
+    const word = state.wordMap.get(state.dialogWordId);
+    if (!word) return;
+    $("dialogMeaningInput").value = word.meaning;
+    $("dialogMeaningEditor").classList.remove("hidden");
+    $("dialogMeaningInput").focus();
+    $("dialogMeaningInput").select();
+  }
+
+  function hideMeaningEditor() {
+    $("dialogMeaningEditor")?.classList.add("hidden");
+  }
+
+  function saveDialogMeaning() {
+    const id = state.dialogWordId;
+    const word = state.wordMap.get(id);
+    const meaning = normalizeText($("dialogMeaningInput").value);
+    if (!word || !meaning) {
+      toast("含义不能为空。", "error");
+      return;
+    }
+    if (word._custom) {
+      const index = state.customWords.findIndex((item) => item.id === id);
+      if (index >= 0) state.customWords[index] = { ...state.customWords[index], meaning };
+      saveJson(STORAGE.custom, state.customWords.map(cleanWordForExport));
+    } else {
+      const index = state.baseWords.findIndex((item) => item.id === id);
+      if (index >= 0) state.baseWords[index] = { ...state.baseWords[index], meaning };
+      saveBaseWords();
+    }
+    refreshWords();
+    renderAll();
+    openWordDialog(id, true);
+    toast("含义已保存到当前词库。", "success");
   }
 
   function toggleStar(id) {
@@ -1848,8 +2257,8 @@
   }
 
   function getWordStatus(progress = {}) {
-    if (isDue(progress)) return "due";
     if (isMastered(progress)) return "mastered";
+    if (isDue(progress)) return "due";
     if (progress.seen > 0) return "learning";
     return "new";
   }
@@ -1880,12 +2289,17 @@
   }
 
   function getAllowedSpeechVoices() {
-    return SPEECH_VOICE_CHOICES.map((choice) => {
+    const preferred = SPEECH_VOICE_CHOICES.map((choice) => {
       const candidates = state.voices
         .filter((voice) => voiceChoiceFor(voice)?.key === choice.key)
         .sort((a, b) => speechVoicePriority(b) - speechVoicePriority(a));
       return candidates[0] ? { voice: candidates[0], choice } : null;
     }).filter(Boolean);
+    if (preferred.length) return preferred;
+    return state.voices
+      .filter((voice) => /^ja(-|_)jp$/i.test(String(voice?.lang || "")) || /japan|japanese|日本|日语|日語/i.test(`${voice?.name || ""} ${voice?.voiceURI || ""}`))
+      .sort((a, b) => speechVoicePriority(b) - speechVoicePriority(a))
+      .map((voice) => ({ voice, choice: { key: voice.voiceURI, label: voice.name || "系统日语语音" } }));
   }
 
   function speechVoicePriority(voice) {
@@ -1976,7 +2390,7 @@
   }
 
   function ratingLabel(rating) {
-    return { again: "重来", hard: "困难", good: "记得", easy: "简单" }[rating] || "已作答";
+    return { again: "重来", hard: "困难", good: "记得", easy: "简单", mastered: "掌握" }[rating] || "已作答";
   }
 
   function detectDelimiter(text) {
@@ -2056,6 +2470,33 @@
     return normalizeText(value).replace(/[\s・、。,.，]/g, "").toLowerCase();
   }
 
+  function cleanKanaAnswer(word) {
+    const source = normalizeText(word?.kana || word?.word || "");
+    return toHiragana(source)
+      .replace(/[（(][^）)]*[）)]/g, "")
+      .replace(/[~～]/g, "")
+      .split("")
+      .filter((char) => /[ぁ-んー]/.test(char))
+      .join("");
+  }
+
+  function isCoreVocabulary(word) {
+    const text = [word?.word, word?.kana, word?.pos, word?.type].map((value) => normalizeText(value)).join(" ");
+    if (/[~～]/.test(text)) return false;
+    return !/(接頭|接头|接尾|prefix|suffix)/i.test(text);
+  }
+
+  function isChoiceCandidate(word, mode) {
+    if (!word?.meaning) return false;
+    if (mode === "meaningToKana" || mode === "listening") return Boolean(cleanKanaAnswer(word)) && isCoreVocabulary(word);
+    return true;
+  }
+
+  function answerOptionKey(word, mode) {
+    if (mode === "meaningToKana") return cleanKanaAnswer(word);
+    return normalizeText(word?.meaning || "").toLowerCase();
+  }
+
   function duplicateKey(word) {
     return `${normalizeAnswer(word.word)}|${normalizeAnswer(word.kana)}|${normalizeAnswer(word.meaning)}`;
   }
@@ -2095,6 +2536,12 @@
 
   function compareKana(a, b) {
     return (a.kana || a.word).localeCompare(b.kana || b.word, "ja", { sensitivity: "base" }) || a.word.localeCompare(b.word, "ja");
+  }
+
+  function compareStudySequence(a, b) {
+    const seqA = Number.isFinite(Number(a.seq)) ? Number(a.seq) : Number.MAX_SAFE_INTEGER;
+    const seqB = Number.isFinite(Number(b.seq)) ? Number(b.seq) : Number.MAX_SAFE_INTEGER;
+    return seqA - seqB || compareKana(a, b);
   }
 
   function simpleHash(value) {

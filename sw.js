@@ -1,10 +1,11 @@
-const CACHE_NAME = "kotoba-flow-v3";
+const CACHE_NAME = "kotoba-flow-v5";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
   "./manifest.webmanifest",
+  "./assets/favicon.svg",
   "./assets/kotoba-icon-192.png",
   "./assets/kotoba-icon-512.png",
   "./assets/vocab-data.js"
