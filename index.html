@@ -8,7 +8,7 @@
   <title>Kotoba Flow · JLPT 日语复习</title>
   <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css?v=20260629-ocr-clean" />
+  <link rel="stylesheet" href="./styles.css?v=20260701-example-n1b" />
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true">
@@ -232,7 +232,7 @@
               <label class="field"><span>JLPT 等级</span><select id="studyLevel"><option value="all">全部等级</option><option>N5</option><option>N4</option><option>N3</option><option>N2</option><option>N1</option><option value="CUSTOM">自定义</option></select></label>
               <label class="field"><span>学习范围</span><select id="studyScope"><option value="today">今日计划</option><option value="due">仅到期复习</option><option value="new">未学习词</option><option value="difficult">薄弱词</option><option value="starred">收藏词</option><option value="all">全部词</option></select></label>
               <label class="field"><span>题目数量</span><select id="studyCount"><option>10</option><option selected>20</option><option>30</option><option>50</option></select></label>
-              <div class="study-mix-summary"><span>题型</span><strong>混合练习</strong><small>70% 选择 · 30% 假名 / 听力</small></div>
+              <div class="study-mix-summary"><span>题型</span><strong>例句填空</strong><small>看例句空格，选择正确词条</small></div>
               <label class="field"><span>顺序</span><select id="studyOrder"><option value="sequence">顺序</option><option value="random">随机</option></select></label>
               <label class="field"><span>朗读</span><select id="studyAutoSpeak"><option value="inherit">跟随设置</option><option value="on">自动朗读</option><option value="off">不自动朗读</option></select></label>
             </div>
@@ -246,7 +246,7 @@
             <div class="preview-stack">
               <div><span>预计用时</span><strong id="studyEstimate">约 5 分钟</strong></div>
               <div><span>可用词汇</span><strong id="studyPoolCount">0</strong></div>
-              <div><span>题型</span><strong id="studyModeLabel">混合题型</strong></div>
+              <div><span>题型</span><strong id="studyModeLabel">例句填空</strong></div>
             </div>
             <div class="keyboard-card"><strong>键盘快捷键</strong><p><kbd>Space</kbd> 显示答案　<kbd>S</kbd> 朗读　<kbd>F</kbd> 收藏　<kbd>Enter</kbd> 下一题</p></div>
           </aside>
@@ -377,13 +377,14 @@
           </article>
 
           <article class="card settings-card settings-form-card">
-            <div class="settings-copy"><span class="section-kicker">朗读</span><h3>日语语音</h3><p>优先使用七海（女声）与圭太（男声），并回退到系统日语语音。</p></div>
+            <div class="settings-copy"><span class="section-kicker">朗读</span><h3>日语语音</h3><p>优先使用七海（女声）与圭太（男声）；手机端会回退到系统或浏览器默认日语朗读。</p></div>
             <div class="form-grid two-col settings-form">
               <label class="field"><span>朗读内容</span><select id="speechMode"><option value="kana">优先假名</option><option value="word">优先写法</option><option value="both">假名 + 写法</option></select></label>
-              <label class="field"><span>日语音色</span><select id="speechVoice"><option value="">正在检测七海 / 圭太…</option></select></label>
+              <label class="field"><span>日语音色</span><select id="speechVoice"><option value="">正在检测日语语音…</option></select></label>
               <label class="field range-field"><span>语速 <strong id="speechRateValue">0.85</strong></span><input id="speechRate" type="range" min="0.65" max="1.15" step="0.01" value="0.85" /></label>
               <label class="field range-field"><span>音高 <strong id="speechPitchValue">1.00</strong></span><input id="speechPitch" type="range" min="0.8" max="1.2" step="0.01" value="1" /></label>
               <button class="button secondary full-span" id="testSpeechBtn"><svg><use href="#i-volume"></use></svg>试听「日本語を勉強します」</button>
+              <button class="button ghost full-span" id="speechHelpBtn" type="button">手机语音设置帮助</button>
             </div>
           </article>
 
@@ -418,7 +419,7 @@
       <div id="studyCard" class="study-card-main">
         <div class="study-card-meta">
           <span id="studyCardLevel" class="level-badge">N5</span>
-          <div class="study-card-meta-actions"><span id="studyPromptLabel">选择正确含义</span><button id="studyMasteredBtn" class="mastered-button" type="button">已掌握</button></div>
+          <div class="study-card-meta-actions"><span id="studyPromptLabel">选择填入例句的词</span><button id="studyMasteredBtn" class="mastered-button" type="button">已掌握</button></div>
         </div>
         <div class="study-prompt">
           <h2 id="studyPrompt">勉強</h2>
@@ -488,6 +489,6 @@
 
   <script src="./assets/vocab-data.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="./app.js?v=20260629-ocr-clean"></script>
+  <script src="./app.js?v=20260701-example-n1b"></script>
 </body>
 </html>

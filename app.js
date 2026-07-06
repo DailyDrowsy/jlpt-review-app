@@ -23,7 +23,7 @@
   const DAY = 24 * 60 * 60 * 1000;
   const OCR_SCRIPT_URL = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
   const OCR_FIELD_KEYS = ["word", "kana", "pos", "accent", "meaning"];
-  const CHOICE_MODES = new Set(["wordToMeaning", "meaningToKana", "listening"]);
+  const CHOICE_MODES = new Set(["exampleCloze"]);
   const KANA_TILE_POOL = [..."あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをんがぎぐげござじずぜぞだでどばびぶべぼぱぴぷぺぽー"];
 
   const DEFAULT_SETTINGS = {
@@ -37,7 +37,7 @@
     studyLevel: "all",
     studyScope: "today",
     studyCount: 20,
-    studyMode: "mixed",
+    studyMode: "exampleCloze",
     studyOrder: "sequence",
   };
 
@@ -211,6 +211,9 @@
     const source = normalizeText(pickField(raw, ["source", "词库", "詞庫", "listName", "book", "来源"])) || (isCustom ? "我的词库" : "内置词库");
     const rawId = normalizeText(raw.id);
     const id = rawId || `${isCustom ? "custom" : "base"}-${simpleHash(`${word}|${kana}|${meaning}|${index}`)}`;
+    const example = normalizeText(pickField(raw, ["example", "例句", "日文例句", "例文", "sentence", "jpExample"]));
+    const exampleZh = normalizeText(pickField(raw, ["exampleZh", "例句中文", "例句译文", "中文例句", "translationExample", "zhExample"]));
+    const note = normalizeText(pickField(raw, ["note", "备注", "備註", "memo"]));
     return {
       ...raw,
       id,
@@ -222,8 +225,10 @@
       pos: normalizeText(pickField(raw, ["pos", "词性", "詞性", "品词", "品詞"])),
       accent: normalizeText(pickField(raw, ["accent", "音调", "音調", "声调", "聲調"])),
       meaning,
+      example,
+      exampleZh,
       source,
-      note: normalizeText(pickField(raw, ["note", "备注", "備註", "memo", "例句"])),
+      note: note || (example ? ["例：", example, exampleZh ? `译：${exampleZh}` : ""].filter(Boolean).join("\n") : ""),
       status: normalizeText(raw.status),
       _custom: Boolean(isCustom || String(id).startsWith("custom-")),
     };
@@ -231,7 +236,7 @@
 
   function buildSearchIndex(word) {
     word._romaji = kanaToRomaji(`${word.kana || ""} ${word.word || ""}`).toLowerCase();
-    word._search = [word.word, word.kana, word.meaning, word.pos, word.accent, word.level, word.source, word.type, word.note, word._romaji]
+    word._search = [word.word, word.kana, word.meaning, word.example, word.exampleZh, word.pos, word.accent, word.level, word.source, word.type, word.note, word._romaji]
       .filter(Boolean)
       .join(" ")
       .toLowerCase();
@@ -386,7 +391,7 @@
     });
     $("startStudyBtn").addEventListener("click", () => startConfiguredSession());
     $("closeStudyBtn").addEventListener("click", requestCloseStudy);
-    $("studySpeakBtn").addEventListener("click", () => speakWord(currentSessionWord()));
+    $("studySpeakBtn").addEventListener("click", speakCurrentStudyPrompt);
     $("studyStarBtn").addEventListener("click", () => toggleStar(currentSessionWord()?.id));
     $("studyMasteredBtn").addEventListener("click", markCurrentWordMastered);
     $("showAnswerBtn").addEventListener("click", revealCurrentAnswer);
@@ -531,6 +536,7 @@
       saveSpeechControls();
     });
     $("testSpeechBtn").addEventListener("click", () => speakText("日本語を勉強します"));
+    $("speechHelpBtn").addEventListener("click", showSpeechInstallHelp);
     $("resetProgressBtn").addEventListener("click", resetProgress);
     $("clearHistoryBtn").addEventListener("click", clearHistory);
   }
@@ -1100,7 +1106,7 @@
     const config = readStudyConfig();
     const pool = getStudyPool(config);
     const count = Math.min(config.count, pool.length);
-    const modeLabel = "混合题型";
+    const modeLabel = "例句填空";
     const scopeLabel = {
       today: "今日计划",
       due: "到期复习",
@@ -1110,12 +1116,12 @@
       all: "自由练习",
     }[config.scope] || "学习计划";
     const scopeText = {
-      today: "先处理到期与薄弱词；数量不足时自动加入新词。",
-      due: "仅处理已经到达复习时间的词汇。",
-      new: "从未学习词汇中建立新的记忆。",
-      difficult: "集中处理错题较多、记忆不稳的词。",
-      starred: "复习你主动收藏的重要词汇。",
-      all: "从当前等级的全部词汇中练习。",
+      today: "先处理到期与薄弱词；每题都从例句中挖空目标词。",
+      due: "仅处理已经到达复习时间、且带例句的词汇。",
+      new: "从未学习的例句词汇中建立新的记忆。",
+      difficult: "集中处理错题较多、记忆不稳的例句词。",
+      starred: "复习你主动收藏的重要例句词。",
+      all: "从当前等级全部带例句的词汇中练习。",
     }[config.scope] || "按当前设置开始学习。";
     $("studyAvailability").textContent = `可用 ${pool.length.toLocaleString()} 词`;
     $("studyPoolCount").textContent = pool.length.toLocaleString();
@@ -1142,7 +1148,7 @@
     state.settings.studyLevel = $("studyLevel").value;
     state.settings.studyScope = $("studyScope").value;
     state.settings.studyCount = Number($("studyCount").value);
-    state.settings.studyMode = "mixed";
+    state.settings.studyMode = "exampleCloze";
     state.settings.studyOrder = $("studyOrder").value;
     saveSettings();
   }
@@ -1153,7 +1159,7 @@
       level: $("studyLevel").value,
       scope: $("studyScope").value,
       count: Number($("studyCount").value || 20),
-      mode: "mixed",
+      mode: "exampleCloze",
       order: $("studyOrder").value,
       autoSpeak: autoSpeakValue === "inherit" ? state.settings.autoSpeak : autoSpeakValue === "on",
     };
@@ -1174,6 +1180,7 @@
     const includeMastered = Boolean(config.includeMastered);
     const levelPool = state.words.filter((word) => {
       if (config.level !== "all" && word.level !== config.level) return false;
+      if (!hasExampleQuestion(word)) return false;
       return includeMastered || !isMastered(state.progress[word.id]);
     });
     let pool = [...levelPool];
@@ -1258,7 +1265,7 @@
       level: "all",
       scope: kind === "quick" ? "all" : "due",
       count: kind === "quick" ? 10 : state.settings.studyCount,
-      mode: "mixed",
+      mode: "exampleCloze",
       order: kind === "quick" ? "random" : "sequence",
       autoSpeak: state.settings.autoSpeak,
     };
@@ -1278,13 +1285,16 @@
   }
 
   function startSessionFromIds(ids, configOverride = null) {
-    const uniqueIds = [...new Set(ids)].filter((id) => state.wordMap.has(id));
+    const uniqueIds = [...new Set(ids)].filter((id) => {
+      const word = state.wordMap.get(id);
+      return word && hasExampleQuestion(word);
+    });
     if (!uniqueIds.length) {
       toast("请先选择可学习词汇。", "error");
       return;
     }
     const controlConfig = document.getElementById("studyLevel") ? readStudyConfig() : {
-      level: "all", scope: "all", count: uniqueIds.length, mode: "mixed", order: state.settings.studyOrder, autoSpeak: state.settings.autoSpeak,
+      level: "all", scope: "all", count: uniqueIds.length, mode: "exampleCloze", order: state.settings.studyOrder, autoSpeak: state.settings.autoSpeak,
     };
     const config = { ...controlConfig, ...(configOverride || {}), count: uniqueIds.length };
     if (config.order === "sequence" && !config.manual && !config.sequenceKey) config.sequenceKey = sequenceCursorKey(config);
@@ -1305,13 +1315,11 @@
   }
 
   function buildSessionCards(ids, config) {
-    const deck = buildQuestionModeDeck(ids.length);
     return ids.map((id, index) => {
       const word = state.wordMap.get(id);
-      const preferred = config.mode === "mixed" ? deck[index] : config.mode;
       return {
         id,
-        mode: chooseQuestionMode(word, preferred),
+        mode: chooseQuestionMode(word, config.mode || "exampleCloze"),
         answered: false,
         correct: false,
         selectedId: null,
@@ -1342,23 +1350,11 @@
   function chooseQuestionMode(word, preferred) {
     const valid = validQuestionModesForWord(word);
     if (valid.includes(preferred)) return preferred;
-    const fallbacks = {
-      kanaBuild: ["listening", "meaningToKana", "wordToMeaning"],
-      listening: ["kanaBuild", "meaningToKana", "wordToMeaning"],
-      meaningToKana: ["wordToMeaning"],
-      wordToMeaning: ["meaningToKana", "listening", "kanaBuild"],
-    }[preferred] || ["wordToMeaning"];
-    return fallbacks.find((mode) => valid.includes(mode)) || valid[0] || "wordToMeaning";
+    return valid[0] || "exampleCloze";
   }
 
   function validQuestionModesForWord(word) {
-    const modes = ["wordToMeaning"];
-    const kana = cleanKanaAnswer(word);
-    if (kana && isCoreVocabulary(word)) {
-      modes.push("meaningToKana", "listening");
-      if (kana.length >= 2 && kana.length <= 7) modes.push("kanaBuild");
-    }
-    return modes;
+    return hasExampleQuestion(word) ? ["exampleCloze"] : [];
   }
 
   function openStudyOverlay() {
@@ -1419,7 +1415,7 @@
       finishSession();
       return;
     }
-    const mode = card.mode || "wordToMeaning";
+    const mode = card.mode || "exampleCloze";
     if (!card.optionIds && CHOICE_MODES.has(mode)) {
       card.optionIds = buildAnswerOptions(word, mode).map((option) => option.id);
     }
@@ -1453,10 +1449,17 @@
     } else {
       if (mode === "typing") window.setTimeout(() => $("typingAnswer").focus(), 80);
     }
-    if (session.config.autoSpeak) window.setTimeout(() => speakWord(word), mode === "listening" ? 80 : 120);
+    if (session.config.autoSpeak) window.setTimeout(() => speakStudyPrompt(word, { silent: true }), 120);
   }
 
   function configurePrompt(word, mode) {
+    if (mode === "exampleCloze") {
+      const cloze = buildExampleCloze(word);
+      $("studyPromptLabel").textContent = "选择填入例句的词";
+      $("studyPrompt").innerHTML = cloze.html;
+      $("studyPromptSub").textContent = [LEVEL_LABELS[word.level], word.pos, word.accent].filter(Boolean).join(" · ");
+      return;
+    }
     if (mode === "wordToMeaning") {
       $("studyPromptLabel").textContent = "选择中文含义";
       $("studyPrompt").textContent = word.word;
@@ -1491,6 +1494,7 @@
     const usedAnswers = new Set([answerOptionKey(word, mode)]);
     let candidates = state.words.filter((candidate) => {
       if (candidate.id === word.id || candidate.level !== word.level) return false;
+      if (mode === "exampleCloze" && !hasExampleQuestion(candidate)) return false;
       if (!isChoiceCandidate(candidate, mode)) return false;
       const key = answerOptionKey(candidate, mode);
       if (!key || usedAnswers.has(key)) return false;
@@ -1515,6 +1519,7 @@
     if (chosen.length < 3) {
       const all = state.words.filter((candidate) => {
         if (candidate.id === word.id || chosen.some((item) => item.id === candidate.id)) return false;
+        if (mode === "exampleCloze" && !hasExampleQuestion(candidate)) return false;
         if (!isChoiceCandidate(candidate, mode)) return false;
         const key = answerOptionKey(candidate, mode);
         if (!key || usedAnswers.has(key)) return false;
@@ -1540,9 +1545,11 @@
     }
     root.innerHTML = state.session.options.map((option, index) => {
       let text = option.meaning;
+      if (mode === "exampleCloze") text = option.word;
       if (mode === "meaningToKana") text = cleanKanaAnswer(option) || option.kana || option.word;
       if (mode === "listening") text = option.meaning;
-      return `<button class="study-option" data-choice-id="${escapeAttr(option.id)}"><span>${escapeHtml(text)}</span></button>`;
+      const meta = "";
+      return `<button class="study-option" data-choice-id="${escapeAttr(option.id)}"><span>${escapeHtml(text)}</span>${meta ? `<small>${escapeHtml(meta)}</small>` : ""}</button>`;
     }).join("");
   }
 
@@ -1642,7 +1649,7 @@
   }
 
   function restoreStudyAnswerVisuals(word, card) {
-    const mode = card?.mode || state.session?.config?.mode || "wordToMeaning";
+    const mode = card?.mode || state.session?.config?.mode || "exampleCloze";
     if (mode === "kanaBuild") {
       renderKanaBuildAnswer(word, card, mode);
       return;
@@ -1759,12 +1766,23 @@
     status.classList.toggle("wrong", !correct);
     $("answerStatusIcon").innerHTML = `<svg><use href="#${correct ? "i-check" : "i-close"}"></use></svg>`;
     $("answerStatusTitle").textContent = mastered ? "已标记掌握" : correct ? "回答正确" : peek ? "已显示答案" : "还差一点";
-    $("answerStatusText").textContent = [word.word, word.kana, word.accent, word.meaning].filter(Boolean).join(" · ");
+    $("answerStatusText").innerHTML = answerDetailTemplate(word);
     $("previousCardBtn").disabled = !session || session.index === 0;
     const isLast = session && session.index >= session.cards.length - 1;
     $("nextCardBtn").innerHTML = isLast
       ? `完成本轮 <span aria-hidden="true">✓</span><kbd>Enter</kbd>`
       : `下一题 <span aria-hidden="true">→</span><kbd>Enter</kbd>`;
+  }
+
+  function answerDetailTemplate(word) {
+    const meta = [word.word, word.kana, word.accent, word.meaning].filter(Boolean).join(" · ");
+    const example = normalizeText(word.example);
+    const exampleZh = normalizeText(word.exampleZh);
+    return [
+      `<span class="answer-main-line">${escapeHtml(meta)}</span>`,
+      example ? `<span class="answer-example-line">${escapeHtml(example)}</span>` : "",
+      exampleZh ? `<span class="answer-translation-line">${escapeHtml(exampleZh)}</span>` : "",
+    ].filter(Boolean).join("");
   }
 
   function calculateSchedule(progress, rating) {
@@ -2948,6 +2966,10 @@
       .map((voice) => ({ voice, choice: { key: voice.voiceURI, label: voice.name || "系统日语语音" } }));
   }
 
+  function getBrowserDefaultJapaneseVoiceOption() {
+    return { voice: null, choice: { key: "", label: "浏览器默认日语（ja-JP）" } };
+  }
+
   function speechVoicePriority(voice) {
     const name = `${voice?.name || ""} ${voice?.voiceURI || ""}`.toLowerCase();
     let score = 0;
@@ -2966,17 +2988,14 @@
       const allowed = getAllowedSpeechVoices();
       const select = $("speechVoice");
       if (!select) return;
-      if (!allowed.length) {
-        select.innerHTML = `<option value="">当前浏览器未提供七海或圭太</option>`;
-        select.disabled = true;
-        return;
-      }
+      const options = allowed.length ? allowed : [getBrowserDefaultJapaneseVoiceOption()];
       select.disabled = false;
-      select.innerHTML = allowed.map(({ voice, choice }) => `<option value="${escapeAttr(voice.voiceURI)}">${escapeHtml(choice.label)}</option>`).join("");
-      const selected = allowed.find(({ voice }) => voice.voiceURI === state.settings.speechVoice) || allowed[0];
-      select.value = selected.voice.voiceURI;
-      if (state.settings.speechVoice !== selected.voice.voiceURI) {
-        state.settings.speechVoice = selected.voice.voiceURI;
+      select.innerHTML = options.map(({ voice, choice }) => `<option value="${escapeAttr(voice ? voice.voiceURI : "")}">${escapeHtml(choice.label)}</option>`).join("");
+      const selected = options.find(({ voice }) => (voice ? voice.voiceURI : "") === state.settings.speechVoice) || options[0];
+      const selectedURI = selected.voice ? selected.voice.voiceURI : "";
+      select.value = selectedURI;
+      if (state.settings.speechVoice !== selectedURI) {
+        state.settings.speechVoice = selectedURI;
         saveSettings();
       }
     };
@@ -2995,24 +3014,47 @@
     speakText(text);
   }
 
-  function speakText(text) {
+  function speakCurrentStudyPrompt() {
+    speakStudyPrompt(currentSessionWord());
+  }
+
+  function speakStudyPrompt(word, options = {}) {
+    if (!word) return;
+    speakText(normalizeText(word.example) || word.kana || word.word, options);
+  }
+
+  function speakText(text, options = {}) {
     if (!("speechSynthesis" in window) || !text) {
-      toast("当前浏览器不支持语音朗读。", "error");
+      if (!options.silent) toast("当前浏览器不支持语音朗读。", "error");
       return;
     }
+    state.voices = window.speechSynthesis.getVoices();
     const allowed = getAllowedSpeechVoices();
-    const selected = allowed.find(({ voice }) => voice.voiceURI === state.settings.speechVoice) || allowed[0];
+    const selected = allowed.find(({ voice }) => voice.voiceURI === state.settings.speechVoice) || allowed[0] || getBrowserDefaultJapaneseVoiceOption();
     if (!selected) {
-      toast("未检测到七海或圭太语音，请使用安装了这两种日语音色的浏览器。", "error", 4600);
+      if (!options.silent) toast("当前浏览器没有可用的日语朗读。", "error", 4600);
       return;
     }
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = selected.voice.lang || "ja-JP";
+    utterance.lang = selected.voice?.lang || "ja-JP";
     utterance.rate = Number(state.settings.speechRate || 0.85);
     utterance.pitch = Number(state.settings.speechPitch || 1);
-    utterance.voice = selected.voice;
+    if (selected.voice) utterance.voice = selected.voice;
+    utterance.onerror = () => {
+      if (!options.silent) toast("朗读失败。请在手机系统中安装或启用日语文字转语音。", "error", 5200);
+    };
     window.speechSynthesis.speak(utterance);
+  }
+
+  function showSpeechInstallHelp() {
+    const ua = navigator.userAgent || "";
+    const message = /iphone|ipad|ipod/i.test(ua)
+      ? "iPhone/iPad：设置 > 辅助功能 > 朗读内容 > 语音 > 日语，下载语音后重新打开页面。"
+      : /android/i.test(ua)
+        ? "Android：系统设置 > 语言和输入法 > 文字转语音输出，安装或启用日语语音数据后重新打开页面。"
+        : "电脑端可在系统语音/语言设置中安装日语语音；手机端也需要先在系统 TTS 中启用日语。";
+    toast(message, "success", 9000);
   }
 
 
@@ -3134,13 +3176,61 @@
 
   function isChoiceCandidate(word, mode) {
     if (!word?.meaning) return false;
+    if (mode === "exampleCloze") return Boolean(word?.word) && hasExampleQuestion(word);
     if (mode === "meaningToKana" || mode === "listening") return Boolean(cleanKanaAnswer(word)) && isCoreVocabulary(word);
     return true;
   }
 
   function answerOptionKey(word, mode) {
+    if (mode === "exampleCloze") return normalizeAnswer(word?.word || "");
     if (mode === "meaningToKana") return cleanKanaAnswer(word);
     return normalizeText(word?.meaning || "").toLowerCase();
+  }
+
+  function hasExampleQuestion(word) {
+    return Boolean(normalizeText(word?.word) && normalizeText(word?.example));
+  }
+
+  function buildExampleCloze(word) {
+    const sentence = normalizeText(word?.example);
+    const match = findClozeMatch(sentence, word);
+    if (!match) {
+      return {
+        text: `____ ${sentence}`,
+        html: `<span class="cloze-blank">____</span><span>${escapeHtml(sentence)}</span>`,
+      };
+    }
+    const before = sentence.slice(0, match.index);
+    const after = sentence.slice(match.index + match.text.length);
+    const blank = "____";
+    return {
+      text: `${before}${blank}${after}`,
+      html: `${escapeHtml(before)}<span class="cloze-blank">${blank}</span>${escapeHtml(after)}`,
+    };
+  }
+
+  function findClozeMatch(sentence, word) {
+    const variants = clozeTargetVariants(word);
+    for (const text of variants) {
+      const index = sentence.indexOf(text);
+      if (index >= 0) return { text, index };
+    }
+    return null;
+  }
+
+  function clozeTargetVariants(word) {
+    const raw = normalizeText(word?.word || "");
+    const kana = normalizeText(word?.kana || "").replace(/[（(][^）)]*[）)]/g, "");
+    const variants = [
+      raw,
+      raw.replace(/[「」『』]/g, ""),
+      raw.replace(/[~～]/g, ""),
+      raw.replace(/[~～]/g, "").replace(/[「」『』]/g, ""),
+      kana,
+    ].map((value) => normalizeText(value).replace(/[（(][^）)]*[）)]/g, ""));
+    return [...new Set(variants)]
+      .filter((value) => value && [...value].length >= 2)
+      .sort((a, b) => b.length - a.length);
   }
 
   function duplicateKey(word) {
