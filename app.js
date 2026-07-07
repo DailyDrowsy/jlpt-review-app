@@ -24,6 +24,7 @@
   const OCR_SCRIPT_URL = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
   const OCR_FIELD_KEYS = ["word", "kana", "pos", "accent", "meaning"];
   const CHOICE_MODES = new Set(["exampleCloze"]);
+  const STATIC_AUDIO_ROOT = "./assets/audio";
   const KANA_TILE_POOL = [..."あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをんがぎぐげござじずぜぞだでどばびぶべぼぱぴぷぺぽー"];
 
   const DEFAULT_SETTINGS = {
@@ -96,6 +97,13 @@
     session: null,
     summaryDestination: null,
     voices: [],
+    staticAudio: null,
+    staticAudioPromise: null,
+    staticAudioManifest: null,
+    staticAudioZip: null,
+    staticAudioZipPromise: null,
+    staticAudioUrls: new Map(),
+    currentAudio: null,
     ocr: { busy: false, scriptPromise: null },
     kanaScrubber: { items: [], dragging: false, raf: 0 },
   };
@@ -535,7 +543,7 @@
       $("speechPitchValue").textContent = Number($("speechPitch").value).toFixed(2);
       saveSpeechControls();
     });
-    $("testSpeechBtn").addEventListener("click", () => speakText("日本語を勉強します"));
+    $("testSpeechBtn").addEventListener("click", () => speakWord(state.words[0] || null));
     $("speechHelpBtn").addEventListener("click", showSpeechInstallHelp);
     $("resetProgressBtn").addEventListener("click", resetProgress);
     $("clearHistoryBtn").addEventListener("click", clearHistory);
@@ -1449,7 +1457,7 @@
     } else {
       if (mode === "typing") window.setTimeout(() => $("typingAnswer").focus(), 80);
     }
-    if (session.config.autoSpeak) window.setTimeout(() => speakStudyPrompt(word, { silent: true }), 120);
+    if (session.config.autoSpeak) window.setTimeout(() => speakWord(word, { silent: true }), 120);
   }
 
   function configurePrompt(word, mode) {
@@ -3003,7 +3011,7 @@
     window.speechSynthesis.onvoiceschanged = load;
   }
 
-  function speakWord(word) {
+  async function speakWord(word, options = {}) {
     if (!word) return;
     const mode = state.settings.speechMode;
     const text = mode === "word"
@@ -3011,7 +3019,8 @@
       : mode === "both"
         ? [word.kana || word.word, word.word].filter(Boolean).join("、")
         : word.kana || word.word;
-    speakText(text);
+    if (await playStaticWordAudio(word, options)) return;
+    speakText(text, options);
   }
 
   function speakCurrentStudyPrompt() {
@@ -3020,7 +3029,90 @@
 
   function speakStudyPrompt(word, options = {}) {
     if (!word) return;
-    speakText(normalizeText(word.example) || word.kana || word.word, options);
+    speakWord(word, options);
+  }
+
+  async function loadStaticAudioManifest() {
+    if (state.staticAudio) return state.staticAudio;
+    if (!state.staticAudioPromise) {
+      state.staticAudioPromise = fetch(`${STATIC_AUDIO_ROOT}/manifest.json`, { cache: "no-cache" })
+        .then((response) => response.ok ? response.json() : null)
+        .then((payload) => {
+          state.staticAudioManifest = payload && typeof payload === "object" ? payload : null;
+          const words = Array.isArray(payload?.words) ? payload.words : [];
+          state.staticAudio = new Set(words.map(String));
+          return state.staticAudio;
+        })
+        .catch(() => {
+          state.staticAudio = new Set();
+          return state.staticAudio;
+        });
+    }
+    return state.staticAudioPromise;
+  }
+
+  async function loadStaticAudioZip(options = {}) {
+    await loadStaticAudioManifest();
+    const packageName = normalizeText(state.staticAudioManifest?.package || "");
+    if (!packageName || !window.JSZip) return null;
+    if (state.staticAudioZip) return state.staticAudioZip;
+    if (!state.staticAudioZipPromise) {
+      if (!options.silent) toast("正在加载词汇音频包，首次使用需要稍等。", "success", 5200);
+      state.staticAudioZipPromise = fetch(`${STATIC_AUDIO_ROOT}/${packageName}`)
+        .then((response) => response.ok ? response.arrayBuffer() : Promise.reject(new Error("audio package missing")))
+        .then((buffer) => window.JSZip.loadAsync(buffer))
+        .then((zip) => {
+          state.staticAudioZip = zip;
+          return zip;
+        })
+        .catch(() => {
+          state.staticAudioZip = null;
+          return null;
+        });
+    }
+    return state.staticAudioZipPromise;
+  }
+
+  async function playStaticWordAudio(word, options = {}) {
+    if (!word?.id || typeof Audio === "undefined") return false;
+    const available = await loadStaticAudioManifest();
+    if (!available.has(String(word.id))) return false;
+    const packed = await loadStaticAudioZip(options);
+    let source = `${STATIC_AUDIO_ROOT}/words/${encodeURIComponent(word.id)}.mp3`;
+    if (packed) {
+      const cached = state.staticAudioUrls.get(String(word.id));
+      if (cached) {
+        source = cached;
+      } else {
+        const file = packed.file(`${word.id}.mp3`);
+        if (!file) return false;
+        const blob = await file.async("blob");
+        source = URL.createObjectURL(blob);
+        state.staticAudioUrls.set(String(word.id), source);
+      }
+    }
+    return new Promise((resolve) => {
+      if (state.currentAudio) {
+        state.currentAudio.pause();
+        state.currentAudio = null;
+      }
+      const audio = new Audio(source);
+      state.currentAudio = audio;
+      audio.preload = "auto";
+      audio.playbackRate = Number(state.settings.speechRate || 0.85);
+      audio.onended = () => {
+        if (state.currentAudio === audio) state.currentAudio = null;
+        resolve(true);
+      };
+      audio.onerror = () => {
+        if (state.currentAudio === audio) state.currentAudio = null;
+        resolve(false);
+      };
+      audio.play().catch(() => {
+        if (state.currentAudio === audio) state.currentAudio = null;
+        resolve(false);
+      });
+    });
   }
 
   function speakText(text, options = {}) {
